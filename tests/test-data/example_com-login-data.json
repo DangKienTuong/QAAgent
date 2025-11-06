@@ -1,0 +1,30 @@
+{
+  "testCases": [
+    {
+      "testId": "TC_001",
+      "description": "Valid admin login",
+      "username": "admin",
+      "password": "admin123",
+      "expected": "success"
+    },
+    {
+      "testId": "TC_002",
+      "description": "Invalid password",
+      "username": "admin",
+      "password": "wrongpass",
+      "expected": "error"
+    },
+    {
+      "testId": "TC_003",
+      "description": "Non-existent user",
+      "username": "nonexistent",
+      "password": "anypass",
+      "expected": "error"
+    }
+  ],
+  "metadata": {
+    "generatedAt": "2025-01-15",
+    "totalCases": 3,
+    "description": "Example data-driven login test cases"
+  }
+}

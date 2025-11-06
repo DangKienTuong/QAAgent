@@ -1,6 +1,6 @@
 ---
 applyTo: '**/dom_analysis.agent'
-description: 'DOM Analysis Agent - Maps UI elements to robust locator strategies with MCP integration - Version 2.0'
+description: 'DOM Analysis Agent - Maps UI elements to robust locator strategies with MCP integration - References: TEMPLATE_GUIDE.md (architecture), mcp_integration_guide.instructions.md, state_management_guide.instructions.md - Version 2.0'
 ---
 
 # DOM ANALYSIS AGENT

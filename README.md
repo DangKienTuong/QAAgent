@@ -2,6 +2,30 @@
 
 This repository contains an automated test framework using [Playwright](https://playwright.dev/) with TypeScript. It is designed for Web, API, and Electron Apps, providing a stable and robust layer on top of Playwright with built-in utilities, linting, logging, reports, and more.
 
+## 🎯 Key Features
+
+- ✅ **Page Object Model (POM)** - Maintainable test architecture with fixture-based dependency injection
+- ✅ **Data-Driven Testing** - Parameterized tests with JSON data files and Faker integration
+- ✅ **Multi-Environment Support** - Seamless switching between dev/staging/qa/sit/prod
+- ✅ **Self-Healing Locators** - Automatic fallback strategies for robust element interaction
+- ✅ **Custom Utilities Layer** - 975-line abstraction over Playwright APIs with error handling
+- ✅ **AI Agent Integration** - LLM-friendly instructions for autonomous test generation
+- ✅ **Comprehensive Reporting** - Monocart HTML reports with screenshots and videos
+- ✅ **Type Safety** - Full TypeScript support with custom type definitions
+
+## 📖 Documentation for LLM Agents
+
+**For AI Agents/LLMs:** See [`TEMPLATE_GUIDE.md`](./TEMPLATE_GUIDE.md) for comprehensive architecture overview, patterns, and integration guidelines.
+
+**Agent Instructions:** `.github/instructions/` directory contains:
+- `data_driven_guide.instructions.md` - Complete data-driven testing patterns
+- `test_case_designer.agent.instructions.md` - Test case generation from user stories
+- `dom_analysis.agent.instructions.md` - UI element mapping strategies
+- `pom_generator.agent.instructions.md` - Page Object Model code generation
+- `test_healing.agent.instructions.md` - Autonomous test failure repair
+- `mcp_integration_guide.instructions.md` - Memory and tool integration
+- See `.github/copilot-instructions.md` for orchestration patterns
+
 ## 📂 Project Structure
 
 ```
@@ -69,7 +93,7 @@ PLAYWRIGHT_AUTOMATED_TESTS
    cd PLAYWRIGHT_AUTOMATED_TESTS
    ```
 
-2. Install dependencies:
+2. Install dependencies (includes Faker for data generation):
    ```sh
    npm install
    ```
@@ -78,6 +102,91 @@ PLAYWRIGHT_AUTOMATED_TESTS
    ```sh
    npx playwright install
    ```
+
+4. Configure environment:
+   ```sh
+   # Copy environment template
+   cp environments/dev.env environments/dev.env.local
+   # Edit with your settings
+   ```
+
+### Quick Start
+
+Run tests in different environments:
+
+```sh
+# Development environment
+npm run test:dev
+
+# Staging environment
+npm run test:staging
+
+# Production environment
+npm run test:prod
+```
+
+Run tests with specific browsers:
+
+```sh
+# Chromium (default)
+npm run test:chromium
+
+# Firefox
+npm run test:firefox
+
+# Microsoft Edge
+npm run test:msedge
+
+# Headed mode (visible browser)
+npm run test:chromium-headed
+```
+
+Run specific test types:
+
+```sh
+# API tests only
+npm run test:api
+
+# All tests (default)
+npm test
+```
+
+### Data-Driven Testing Example
+
+See example data files:
+- `tests/test-data/example_com-login-data.json` - Login test cases
+- `tests/test-data/demoqa_com-registration-data.json` - Registration test cases
+
+Create your own data file:
+
+```json
+{
+  "testCases": [
+    {
+      "testId": "TC_001",
+      "description": "Your test description",
+      "data": { /* your test data */ },
+      "expected": "success"
+    }
+  ]
+}
+```
+
+Use in tests:
+
+```typescript
+import testData from 'tests/test-data/your-data.json'
+
+test.describe('Data-Driven Tests', () => {
+  testData.testCases.forEach((testCase) => {
+    test(`${testCase.testId}`, async ({ page }) => {
+      // Use testCase.data
+    })
+  })
+})
+```
+
+For complete data-driven patterns, see `.github/instructions/data_driven_guide.instructions.md`
 
 ### Package Information for Playwright Automation Tests
 

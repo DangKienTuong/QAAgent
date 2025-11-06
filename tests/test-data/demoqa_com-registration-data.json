@@ -1,0 +1,102 @@
+{
+  "testCases": [
+    {
+      "testId": "TC_001",
+      "description": "Valid registration - complete form",
+      "category": "valid",
+      "data": {
+        "firstName": "Michael",
+        "lastName": "Anderson",
+        "email": "michael.anderson@example.com",
+        "gender": "Male",
+        "mobile": "5551234567",
+        "dateOfBirth": "15 Jan 1990",
+        "subjects": ["Maths", "Physics"],
+        "hobbies": ["Sports", "Reading"],
+        "currentAddress": "123 Main St, New York, NY 10001",
+        "state": "NCR",
+        "city": "Delhi"
+      },
+      "expected": {
+        "status": "success",
+        "message": "Thanks for submitting the form"
+      }
+    },
+    {
+      "testId": "TC_002",
+      "description": "Valid registration - minimal fields",
+      "category": "valid",
+      "data": {
+        "firstName": "Sarah",
+        "lastName": "Johnson",
+        "email": "sarah.johnson@example.com",
+        "gender": "Female",
+        "mobile": "9876543210"
+      },
+      "expected": {
+        "status": "success",
+        "message": "Thanks for submitting the form"
+      }
+    },
+    {
+      "testId": "TC_003",
+      "description": "Invalid registration - missing first name",
+      "category": "invalid",
+      "data": {
+        "firstName": "",
+        "lastName": "Smith",
+        "email": "jane.smith@example.com",
+        "gender": "Female",
+        "mobile": "9876543210"
+      },
+      "expected": {
+        "status": "error",
+        "message": "First Name is required"
+      }
+    },
+    {
+      "testId": "TC_004",
+      "description": "Invalid registration - invalid email",
+      "category": "invalid",
+      "data": {
+        "firstName": "John",
+        "lastName": "Doe",
+        "email": "invalid-email",
+        "gender": "Male",
+        "mobile": "1234567890"
+      },
+      "expected": {
+        "status": "error",
+        "message": "Invalid email format"
+      }
+    },
+    {
+      "testId": "TC_005",
+      "description": "Boundary test - minimum length names",
+      "category": "boundary",
+      "data": {
+        "firstName": "Jo",
+        "lastName": "Do",
+        "email": "a@b.co",
+        "gender": "Other",
+        "mobile": "1234567890"
+      },
+      "expected": {
+        "status": "success",
+        "message": "Thanks for submitting the form"
+      }
+    }
+  ],
+  "metadata": {
+    "seed": 12345,
+    "totalCases": 5,
+    "generatedAt": "2025-01-15",
+    "breakdown": {
+      "valid": 2,
+      "invalid": 2,
+      "boundary": 1,
+      "edge": 0
+    },
+    "description": "Example data-driven registration test cases with Faker-style data"
+  }
+}

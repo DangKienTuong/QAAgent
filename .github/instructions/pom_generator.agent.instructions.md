@@ -1,6 +1,6 @@
 ---
 applyTo: '**/pom_generator.agent'
-description: 'POM Generator Agent - Creates Page Object Model code from test designs and DOM mappings - Version 2.0'
+description: 'POM Generator Agent - Creates Page Object Model code from test designs and DOM mappings - References: TEMPLATE_GUIDE.md (architecture), data_driven_guide.instructions.md, mcp_integration_guide.instructions.md, state_management_guide.instructions.md - Version 2.0'
 ---
 
 # POM GENERATOR AGENT

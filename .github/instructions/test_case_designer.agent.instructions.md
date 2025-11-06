@@ -1,6 +1,6 @@
 ---
 applyTo: '**/test_case_designer.agent'
-description: 'Test Case Designer Agent - Converts user stories to structured test cases with data-driven support - Version 2.0'
+description: 'Test Case Designer Agent - Converts user stories to structured test cases with data-driven support - References: TEMPLATE_GUIDE.md (architecture), data_driven_guide.instructions.md, mcp_integration_guide.instructions.md, state_management_guide.instructions.md - Version 2.0'
 ---
 
 # TEST CASE DESIGNER AGENT

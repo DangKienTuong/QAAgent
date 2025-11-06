@@ -1,5 +1,5 @@
 ---
-description: 'Orchestration Agent - Master coordinator for autonomous test automation pipeline - Version 2.0'
+description: 'Orchestration Agent - Master coordinator for autonomous test automation pipeline - References: TEMPLATE_GUIDE.md (architecture), data_driven_guide.instructions.md, mcp_integration_guide.instructions.md, state_management_guide.instructions.md, memory_patterns_reference.instructions.md, rules.instructions.md - Version 2.0'
 ---
 
 # ORCHESTRATION AGENT

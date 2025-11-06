@@ -1,6 +1,6 @@
 ---
 applyTo: '**/test_healing.agent'
-description: 'Test Healing Agent - Autonomous test failure detection and repair - Version 2.0'
+description: 'Test Healing Agent - Autonomous test failure detection and repair - References: TEMPLATE_GUIDE.md (architecture), data_driven_guide.instructions.md, mcp_integration_guide.instructions.md, state_management_guide.instructions.md - Version 2.0'
 ---
 
 # TEST HEALING AGENT
