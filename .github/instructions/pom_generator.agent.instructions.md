@@ -167,14 +167,15 @@ flowchart TD
     C --> D[Step 0D: Pre-Flight Validation]
     D --> E[Step 0E: Verify Pipeline]
     E --> F[Step 1: Sequential Thinking]
-    F --> G[Step 2: Select Test Pattern]
-    G --> H[Step 3: Generate Page Objects]
-    H --> I[Step 4: Register in Fixture]
-    I --> J[Step 5: Generate Test Specs]
-    J --> K[Step 6: Validate Compilation]
-    K --> L[Step 7A: Write State File]
-    L --> M[Step 7B: Store Learnings]
-    M --> N[Step 8: Checkpoint]
+    F --> G[Step 2: Component Reuse Detection]
+    G --> H[Step 3: Select Test Pattern]
+    H --> I[Step 4: Generate Page Objects]
+    I --> J[Step 5: Register in Fixture]
+    J --> K[Step 6: Generate Test Specs]
+    K --> L[Step 7: Validate Compilation]
+    L --> M[Step 7A: Write State File]
+    M --> N[Step 7B: Store Learnings]
+    N --> O[Step 8: Checkpoint]
 ```
 
 ### Step 0A: Read Input from .agent File

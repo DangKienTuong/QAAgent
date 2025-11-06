@@ -36,11 +36,71 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 ---
 
+## Agent Delegation Protocol (CRITICAL)
+
+**Problem:** Orchestration must NOT execute agent work directly. Each gate invokes a specialized agent that performs its own steps.
+
+**Solution:** Explicit context switching when delegating to agents.
+
+### Agent Invocation Pattern (MANDATORY for ALL gates)
+
+```
+1. **Prepare Input:** Write .agent file with structured input data
+2. **Announce Delegation:** Output "DELEGATING TO [Agent Name] for GATE N"
+3. **Load Agent Instructions:** Read .github/instructions/[agent].agent.instructions.md
+4. **Execute Agent Steps:** Perform ALL steps from agent's Step-by-Step Procedure section
+   - Step 0A: Read .agent File (use read_file tool)
+   - Step 0B: Query Memory (use mcp_memory_search_nodes)
+   - Step 0C: Load Previous Gate (if applicable)
+   - Step 0D: Pre-Flight Validation
+   - Step 0E: Verify Pipeline State
+   - Step 1: Sequential Thinking (use mcp_sequential-th_sequentialthinking for 3+ decisions)
+   - Step 2-N: Agent-specific workflow steps
+   - Step N+1: Write State File (create output JSON)
+   - Step N+2: Store Learnings (use mcp_memory_create_entities)
+   - Step N+3: Output Checkpoint
+5. **Announce Completion:** Output "[Agent Name] COMPLETE - GATE N output ready"
+6. **Validate Output:** Read and validate .state/{domain}-{feature}-gateN-output.json
+7. **Return to Orchestration:** Resume pipeline coordination
+```
+
+### Key Rules for Agent Delegation
+
+**NEVER:**
+- Create gate output files directly from orchestration
+- Skip agent instruction file reading
+- Skip agent's Step 0A-0E (mandatory pre-flight steps)
+- Skip agent's sequential thinking (Step 1)
+- Skip agent's checkpoint output (Step N+3)
+- Synthesize executionTrace data without actual execution
+
+**ALWAYS:**
+- Output delegation announcement before agent work
+- Execute EVERY step from agent's instruction file
+- Use actual tool calls for each step (read_file, mcp_memory_search_nodes, etc.)
+- Let agent create its own output file
+- Validate agent output before proceeding
+- Output completion announcement after agent work
+
+### Agent Context Boundary Markers
+
+Use these markers to clearly separate orchestration from agent execution:
+
+```
+DELEGATING TO [Agent Name] for GATE N
+  ↓
+  [Agent executes its full procedure with tool calls]
+  ↓
+[Agent Name] COMPLETE - GATE N output ready
+```
+
+---
+
 ## Request Type Detection (MANDATORY FIRST STEP)
 
 **BEFORE executing pipeline, determine if request triggers orchestration:**
 
-### ✅ TRIGGER ORCHESTRATION IF:
+### Trigger Orchestration If:
 - User provides user story ("As a user, I can...")
 - User provides test automation request with URL + test steps
 - User asks "create test script", "automate testing", "generate tests"
@@ -48,7 +108,7 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 - User provides acceptance criteria or expected results
 - User mentions specific URL to test (e.g., demoqa.com, example.com)
 
-### ❌ DO NOT TRIGGER IF:
+### Do Not Trigger If:
 - User asks to "read a file", "check errors", "analyze code"
 - User asks for "documentation", "explanation", "help with..."
 - User provides code snippets to review or fix
@@ -358,81 +418,246 @@ flowchart TD
 // }
 ```
 
-**Execution:**
+**Execution (Following Agent Delegation Protocol):**
 
-1. **Write .agent file:** `.github/agents/test_case_designer.agent`
-2. **Provide input:** `{ metadata, userStory, url, acceptanceCriteria, dataRequirements, cachedHTML }`
-3. **Read .agent file:** Trigger agent activation
-4. **Wait for output:** `.state/{domain}-{feature}-gate0-output.json`
-5. **Validate output:** `totalCases >= 5`, `dataFile` path exists
-6. **Update todo:** Mark GATE 0 completed, GATE 1 in-progress
-7. **Update pipeline state:** `completedGates.push(0)`, `currentGate = 1`
+1. **Prepare Input:** Create `.github/agents/test_case_designer.agent` with:
+   ```json
+   {
+     "gate": 0,
+     "metadata": { domain, feature, requestId },
+     "userStory": "<USER_STORY>",
+     "url": "<URL>",
+     "acceptanceCriteria": ["<AC_001>", ...],
+     "dataRequirements": { type: "data-driven", count: 5, seed: <SEED> },
+     "cachedHTML": ".state/form-elements.json"
+   }
+   ```
+
+2. **Announce Delegation:** 
+   ```
+   Output: "DELEGATING TO Test Case Designer Agent for GATE 0 (Data Preparation)"
+   ```
+
+3. **Load Agent Instructions:**
+   ```
+   Read: .github/instructions/test_case_designer.agent.instructions.md
+   Focus on: GATE 0 execution procedure (Step 0A through Step N+3)
+   ```
+
+4. **Execute Agent Steps (ALL MANDATORY):**
+   - **Step 0A:** Read `.github/agents/test_case_designer.agent` using `read_file` tool
+   - **Step 0B:** Query memory for data patterns using `mcp_memory_search_nodes`
+   - **Step 0C:** Skip (N/A for GATE 0)
+   - **Step 0D:** Validate input (userStory, acceptanceCriteria, dataRequirements present)
+   - **Step 0E:** Verify pipeline state using `manage_todo_list({ operation: 'read' })`
+   - **Step 1:** Plan data generation strategy using `mcp_sequential-th_sequentialthinking` (min 3 thoughts)
+   - **Step 3B:** Generate test data sets (3 valid, 1 boundary, 1 negative)
+   - **Step 6A:** Write output to `.state/{domain}-{feature}-gate0-output.json` using `create_file`
+   - **Step 6B:** Store DataPreparation entity using `mcp_memory_create_entities`
+   - **Step 7:** Output checkpoint markdown
+
+5. **Announce Completion:**
+   ```
+   Output: "Test Case Designer Agent COMPLETE - GATE 0 output ready at .state/{domain}-{feature}-gate0-output.json"
+   ```
+
+6. **Validate Agent Output:**
+   - Read `.state/{domain}-{feature}-gate0-output.json`
+   - Check: `status === 'SUCCESS'`
+   - Check: `output.totalCases >= 5`
+   - Check: `output.dataFile` path exists
+   - Check: `executionTrace.checkpointCompleted === true`
+
+7. **Return to Orchestration:**
+   - Mark GATE 0 completed in todo list
+   - Update pipeline state: `completedGates.push(0)`, `currentGate = 1`
+   - Set GATE 1 to in-progress
+
+**On Failure:** Throw error with validation details, do NOT proceed to GATE 1
 
 ### GATE 1: Test Case Design
 
-**Execution:**
+**Execution (Following Agent Delegation Protocol):**
 
-1. **Write .agent file:** `.github/agents/test_case_designer.agent`
-2. **Provide input:** `{ metadata, userStory, url, acceptanceCriteria, dataRequirements, cachedHTML }`
-3. **Activate agent:** Read .agent file
-4. **Wait for output:** `.state/{domain}-{feature}-gate1-output.json`
-5. **Validate output:**
-   - `executionTrace.checkpointCompleted === true`
-   - `validationResult.passed === true`
-   - `output.testCases.length > 0`
-   - All `testCases` have `testId`, `testSteps`, `expectedResult`
-6. **Store patterns immediately:**
-   - Entity: `{domain}-{feature}-TestPattern`
-   - Type: `TestPattern`
-   - Observations: test count, coverage, data-driven flag, timestamp
-   - Verify storage succeeded
-7. **Update todo:** Mark GATE 1 completed, GATE 2 in-progress
-8. **Update pipeline state:** `completedGates.push(1)`, `currentGate = 2`
+1. **Prepare Input:** Create `.github/agents/test_case_designer.agent` with:
+   ```json
+   {
+     "gate": 1,
+     "metadata": { domain, feature, requestId },
+     "userStory": "<USER_STORY>",
+     "url": "<URL>",
+     "acceptanceCriteria": ["<AC_001>", ...],
+     "dataRequirements": { type, dataFile },
+     "cachedHTML": ".state/form-elements.json",
+     "previousGate": ".state/{domain}-{feature}-gate0-output.json"
+   }
+   ```
+
+2. **Announce Delegation:**
+   ```
+   Output: "DELEGATING TO Test Case Designer Agent for GATE 1"
+   ```
+
+3. **Load Agent Instructions:**
+   ```
+   Read: .github/instructions/test_case_designer.agent.instructions.md (lines 1-500)
+   ```
+
+4. **Execute Agent Steps (ALL MANDATORY):**
+   - **Step 0A:** Read `.github/agents/test_case_designer.agent` using `read_file`
+   - **Step 0B:** Query memory: `"{domain} {feature} test patterns"`
+   - **Step 0C:** Load GATE 0 output (if exists)
+   - **Step 0D:** Pre-flight validation
+   - **Step 0E:** Verify pipeline state
+   - **Step 1:** Sequential thinking (min 5 thoughts for test strategy)
+   - **Step 2:** Extract field constraints from cached HTML
+   - **Step 3A/3B:** Generate test cases (single or data-driven mode)
+   - **Step 4:** Generate test IDs
+   - **Step 5:** Validate output
+   - **Step 6A:** Write `.state/{domain}-{feature}-gate1-output.json`
+   - **Step 6B:** Store TestPattern entity
+   - **Step 7:** Output checkpoint
+
+5. **Announce Completion:**
+   ```
+   Output: "Test Case Designer Agent COMPLETE - GATE 1 output ready"
+   ```
+
+6. **Validate Agent Output:**
+   - Read `.state/{domain}-{feature}-gate1-output.json`
+   - Check: `executionTrace.checkpointCompleted === true`
+   - Check: `validationResult.passed === true`
+   - Check: `output.testCases.length > 0`
+   - Check: All test cases have `testId`, `testSteps`, `expectedResult`
+
+7. **Return to Orchestration:**
+   - Mark GATE 1 completed, GATE 2 in-progress
+   - Update pipeline state: `completedGates.push(1)`, `currentGate = 2`
 
 **On Failure:** Throw error, do NOT proceed to GATE 2
 
 ### GATE 2: DOM Element Mapping
 
-**Execution:**
+**Execution (Following Agent Delegation Protocol):**
 
-1. **Write .agent file:** `.github/agents/dom_analysis.agent`
-2. **Provide input:** `{ metadata, testCases: ".state/{domain}-{feature}-gate1-output.json", cachedHTML }`
-3. **Activate agent**
-4. **Wait for output:** `.state/{domain}-{feature}-gate2-output.json`
-5. **Validate output:**
-   - `executionTrace.checkpointCompleted === true`
-   - `validationResult.passed === true`
-   - `output.elementMappings.length > 0`
-   - All test steps have corresponding element mappings
-   - Average confidence score >= 70%
-6. **Store patterns immediately:**
-   - Entity: `{domain}-{feature}-LocatorPattern`
-   - Type: `LocatorPattern`
-   - Observations: elements count, avg confidence, special components, timestamp
-7. **Update todo:** Mark GATE 2 completed, GATE 3 in-progress
-8. **Update pipeline state:** `completedGates.push(2)`, `currentGate = 3`
+1. **Prepare Input:** Create `.github/agents/dom_analysis.agent` with:
+   ```json
+   {
+     "gate": 2,
+     "metadata": { domain, feature, requestId },
+     "url": "<URL>",
+     "testCases": ".state/{domain}-{feature}-gate1-output.json",
+     "cachedHTML": ".state/form-elements.json",
+     "previousGate": ".state/{domain}-{feature}-gate1-output.json"
+   }
+   ```
+
+2. **Announce Delegation:**
+   ```
+   Output: "DELEGATING TO DOM Analysis Agent for GATE 2"
+   ```
+
+3. **Load Agent Instructions:**
+   ```
+   Read: .github/instructions/dom_analysis.agent.instructions.md (lines 1-400)
+   ```
+
+4. **Execute Agent Steps (ALL MANDATORY):**
+   - **Step 0A:** Read `.github/agents/dom_analysis.agent` using `read_file`
+   - **Step 0B:** Query memory: `"{domain} {feature} locator patterns"`
+   - **Step 0C:** Load GATE 1 output (test cases)
+   - **Step 0D:** Pre-flight validation
+   - **Step 0E:** Verify pipeline state
+   - **Step 1:** Sequential thinking (min 3 thoughts for locator strategy)
+   - **Step 2:** Parse cached HTML
+   - **Step 3:** Match test steps to elements
+   - **Step 4:** Generate locator strategies with fallbacks
+   - **Step 5:** Calculate confidence scores
+   - **Step 6:** Detect special components (datepicker, react-select)
+   - **Step 7:** Validate quality (avg confidence >= 70%)
+   - **Step 8A:** Write `.state/{domain}-{feature}-gate2-output.json`
+   - **Step 8B:** Store LocatorPattern entity
+   - **Step 9:** Output checkpoint
+
+5. **Announce Completion:**
+   ```
+   Output: "DOM Analysis Agent COMPLETE - GATE 2 output ready"
+   ```
+
+6. **Validate Agent Output:**
+   - Read `.state/{domain}-{feature}-gate2-output.json`
+   - Check: `executionTrace.checkpointCompleted === true`
+   - Check: `validationResult.passed === true`
+   - Check: `output.elementMappings.length > 0`
+   - Check: All test steps have corresponding element mappings
+   - Check: Average confidence score >= 70%
+
+7. **Return to Orchestration:**
+   - Mark GATE 2 completed, GATE 3 in-progress
+   - Update pipeline state: `completedGates.push(2)`, `currentGate = 3`
 
 **On Failure:** Throw error, do NOT proceed to GATE 3
 
 ### GATE 3: Code Generation
 
-**Execution:**
+**Execution (Following Agent Delegation Protocol):**
 
-1. **Write .agent file:** `.github/agents/pom_generator.agent`
-2. **Provide input:** `{ metadata, testCases: ".state/...gate1...", elementMappings: ".state/...gate2...", dataStrategy }`
-3. **Activate agent**
-4. **Wait for output:** `.state/{domain}-{feature}-gate3-output.json`
-5. **Validate output:**
-   - `executionTrace.checkpointCompleted === true`
-   - `validationResult.passed === true`
-   - `output.files.length > 0`
-   - `output.compilationErrors === 0`
-6. **Store patterns immediately:**
-   - Entity: `{domain}-{feature}-CodePattern`
-   - Type: `CodePattern`
-   - Observations: files count, compilation status, self-healing enabled, timestamp
-7. **Update todo:** Mark GATE 3 completed, GATE 4 in-progress
-8. **Update pipeline state:** `completedGates.push(3)`, `currentGate = 4`
+1. **Prepare Input:** Create `.github/agents/pom_generator.agent` with:
+   ```json
+   {
+     "gate": 3,
+     "metadata": { domain, feature, requestId },
+     "testCases": ".state/{domain}-{feature}-gate1-output.json",
+     "elementMappings": ".state/{domain}-{feature}-gate2-output.json",
+     "dataStrategy": { type, dataFile, totalCases },
+     "previousGates": {
+       "gate1": ".state/{domain}-{feature}-gate1-output.json",
+       "gate2": ".state/{domain}-{feature}-gate2-output.json"
+     }
+   }
+   ```
+
+2. **Announce Delegation:**
+   ```
+   Output: "DELEGATING TO POM Generator Agent for GATE 3"
+   ```
+
+3. **Load Agent Instructions:**
+   ```
+   Read: .github/instructions/pom_generator.agent.instructions.md (lines 1-500)
+   ```
+
+4. **Execute Agent Steps (ALL MANDATORY):**
+   - **Step 0A:** Read `.github/agents/pom_generator.agent` using `read_file`
+   - **Step 0B:** Query memory: `"{domain} {feature} code generation patterns"`
+   - **Step 0C:** Load GATE 1 and GATE 2 outputs
+   - **Step 0D:** Pre-flight validation
+   - **Step 0E:** Verify pipeline state
+   - **Step 1:** Sequential thinking (min 5 thoughts for code generation strategy)
+   - **Step 2:** Generate Page Object Model class
+   - **Step 3:** Generate test spec with data-driven support
+   - **Step 4:** Update pageFixture.ts
+   - **Step 5:** Implement self-healing locator strategies
+   - **Step 6:** Validate compilation (TypeScript check)
+   - **Step 7A:** Write `.state/{domain}-{feature}-gate3-output.json`
+   - **Step 7B:** Store CodePattern entity
+   - **Step 8:** Output checkpoint
+
+5. **Announce Completion:**
+   ```
+   Output: "POM Generator Agent COMPLETE - GATE 3 output ready"
+   ```
+
+6. **Validate Agent Output:**
+   - Read `.state/{domain}-{feature}-gate3-output.json`
+   - Check: `executionTrace.checkpointCompleted === true`
+   - Check: `validationResult.passed === true`
+   - Check: `output.files.length > 0`
+   - Check: `output.compilationErrors === 0`
+
+7. **Return to Orchestration:**
+   - Mark GATE 3 completed, GATE 4 in-progress
+   - Update pipeline state: `completedGates.push(3)`, `currentGate = 4`
 
 **On Failure:** Throw error with compilation errors, do NOT proceed to GATE 4
 
@@ -531,16 +756,57 @@ flowchart TD
 
 **Healing Invocation (CONDITIONAL):**
 
-1. **Write .agent file:** `.github/agents/test_healing.agent`
-2. **Provide input:** `{ failedTest, executionHistory, generatedCode, dataStrategy, cachedHTML, healingAttemptCount, maxHealingAttempts }`
-3. **Activate agent:** Read .agent file to trigger agent execution
-4. **Wait for healing:** Agent applies strategy, verifies, stores patterns, writes state file
-5. **Read healing result:** Load `.state/{domain}-{feature}-healing-{attemptNumber}.json`
-6. **Decision:**
+1. **Prepare Input:** Create `.github/agents/test_healing.agent` with:
+   ```json
+   {
+     "gate": "healing",
+     "metadata": { domain, feature, requestId },
+     "failedTest": { testId, error, stackTrace },
+     "executionHistory": [results],
+     "generatedCode": { pageObject, testSpec },
+     "dataStrategy": { type, dataFile },
+     "cachedHTML": ".state/form-elements.json",
+     "healingAttemptCount": <CURRENT_ATTEMPT>,
+     "maxHealingAttempts": 3
+   }
+   ```
+
+2. **Announce Delegation:**
+   ```
+   Output: "DELEGATING TO Test Healing Agent - Attempt {attemptCount}/3"
+   ```
+
+3. **Load Agent Instructions:**
+   ```
+   Read: .github/instructions/test_healing.agent.instructions.md
+   ```
+
+4. **Execute Agent Steps (ALL MANDATORY):**
+   - **Step 0A:** Read `.github/agents/test_healing.agent`
+   - **Step 0B:** Query memory: `"{domain} {feature} healing patterns"`
+   - **Step 0C:** Load execution history
+   - **Step 0D:** Pre-flight validation
+   - **Step 0E:** Verify pipeline state
+   - **Step 1:** Sequential thinking (diagnose failure)
+   - **Step 2:** Apply healing strategy
+   - **Step 3:** Verify fix
+   - **Step 4A:** Write `.state/{domain}-{feature}-healing-{attemptNumber}.json`
+   - **Step 4B:** Store HealingPattern entity
+   - **Step 5:** Output checkpoint
+
+5. **Announce Completion:**
+   ```
+   Output: "Test Healing Agent COMPLETE - Healing attempt {attemptCount} result: {SUCCESS/FAILED}"
+   ```
+
+6. **Read Healing Result:** Load `.state/{domain}-{feature}-healing-{attemptNumber}.json`
+
+7. **Decision Logic:**
    - If SUCCESS: Continue to next test run iteration to verify fix
    - If FAILED and attempts < 3: Continue loop, trigger healing again on next failure
    - If FAILED and attempts = 3: Exit loop, report failure to user
-7. **Track healing metrics:** Store attempt count, success/failure for each healing
+
+8. **Track Healing Metrics:** Store attempt count, success/failure for each healing
 
 **Healing Retry Logic:**
 
@@ -653,35 +919,35 @@ flowchart TD
 **Checkpoint Output:**
 
 ```markdown
-**✅ CHECKPOINT: Pipeline Completion - {overallStatus}**
+CHECKPOINT: Pipeline Completion - {overallStatus}
 
-**MCP Execution Audit:**
-✅ Step 0: Memory Search
-✅ Step 1: Todo List Initialization
-{✅ or ⏭️} GATE 0: Data Preparation
-✅ GATE 1: Test Case Design
-✅ GATE 2: DOM Element Mapping
-✅ GATE 3: Code Generation
-✅ GATE 4: Test Execution
-✅ GATE 5: Memory Storage
-✅ Todo Updates: All gates tracked
+MCP Execution Audit:
+- Step 0: Memory Search
+- Step 1: Todo List Initialization
+- GATE 0: Data Preparation (Conditional)
+- GATE 1: Test Case Design
+- GATE 2: DOM Element Mapping
+- GATE 3: Code Generation
+- GATE 4: Test Execution
+- GATE 5: Memory Storage
+- Todo Updates: All gates tracked
 
-**Deliverables:**
+Deliverables:
 - Page Objects: {list}
 - Test Specs: {list}
 - Data Files: {list}
 - Fixtures: {list}
 
-**Quality Metrics:**
+Quality Metrics:
 - Test Coverage: {percent}%
 - Locator Confidence: {percent}%
 - Compilation: {SUCCESS/FAILED}
 - Execution Pass Rate: {percent}%
-- **Overall Score: {score}/100**
+- Overall Score: {score}/100
 
-**Missing Steps:** {list OR "NONE"}
+Missing Steps: {list OR "NONE"}
 
-**ACTION:** {status-specific action}
+ACTION: {status-specific action}
 ```
 
 **Update todo:** Mark FINAL completed (all items completed)
@@ -715,6 +981,11 @@ flowchart TD
 - Skip memory storage in GATE 5
 - Skip final self-audit checkpoint
 - Return results without comprehensive quality metrics
+- Create gate output files directly from orchestration (CRITICAL)
+- Skip agent instruction file reading during delegation
+- Skip agent's mandatory pre-flight steps (Step 0A-0E)
+- Skip agent's sequential thinking step
+- Synthesize executionTrace data without actual execution
 
 **ALWAYS:**
 - Detect request type before execution
@@ -733,6 +1004,10 @@ flowchart TD
 - Calculate comprehensive quality metrics
 - Output final checkpoint
 - Mark all todos completed
+- Follow Agent Delegation Protocol for all gates (CRITICAL)
+- Output delegation announcements before agent work
+- Execute ALL agent steps with real tool calls
+- Output completion announcements after agent work
 
 ---
 
@@ -765,7 +1040,7 @@ Create test script with steps:
 
 **Orchestration Actions:**
 
-1. **Detect Request Type:** ✅ Test automation (numbered steps detected)
+1. **Detect Request Type:** Test automation (numbered steps detected)
 2. **Transform:** Convert to pipeline format with user story + ACs
 3. **Step 0:** Query memory (no existing patterns found)
 4. **Step 1:** Initialize todo (8 items - GATE 0 included for multiple fields)
