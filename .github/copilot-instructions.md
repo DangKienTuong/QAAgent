@@ -47,14 +47,28 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 ```
 1. **Prepare Input:** Write .agent file with structured input data
 2. **Announce Delegation:** Output "DELEGATING TO [Agent Name] for GATE N"
-3. **Load Agent Instructions (COMPLETE FILE REQUIRED):**
-   a. Read .github/instructions/[agent].agent.instructions.md in FULL
-   b. Use read_file with large endLine (e.g., 10000) or read in 500-line chunks until EOF
-   c. Agent instruction files are 1000-1700 lines - MUST read ALL lines
-   d. Verify completeness: Check for "Step 0A", "Step 0B", "Step N+3: Output Checkpoint"
-   e. If any mandatory step missing, read remaining lines
-   f. Output confirmation: "Loaded {total_lines} lines covering Steps {step_list}"
-   g. CRITICAL: Do NOT proceed with partial instructions - 100% load required
+3. **Load ALL Applicable Instructions (COMPLETE CONTEXT REQUIRED):**
+   a. Load global instruction files in dependency order:
+      i.   .github/instructions/rules.instructions.md (Communication Rules, ~100 lines)
+      ii.  .github/instructions/critical_thinking_protocol.instructions.md (Mandatory Skepticism, ~300 lines)
+      iii. .github/instructions/mcp_integration_guide.instructions.md (MCP Tool Specs, ~400 lines)
+      iv.  .github/instructions/memory_patterns_reference.instructions.md (Query Patterns, ~200 lines)
+      v.   .github/instructions/state_management_guide.instructions.md (State Files, ~250 lines)
+      vi.  .github/instructions/data_driven_guide.instructions.md (ONLY for test_case_designer, ~500 lines)
+   b. Load agent-specific instruction file:
+      vii. .github/instructions/[agent].agent.instructions.md in FULL (1000-1700 lines)
+   c. Use read_file with large endLine (e.g., 10000) or read in 500-line chunks until EOF for EACH file
+   d. Verify completeness across ALL files:
+      - rules.instructions.md: Communication Rules, Agent Registry
+      - critical_thinking_protocol.instructions.md: 5 Pillars, Challenge-Analysis-Mitigation pattern
+      - mcp_integration_guide.instructions.md: All MCP tool parameters (sequential thinking, memory, todo)
+      - memory_patterns_reference.instructions.md: Entity naming (TestPattern, LocatorPattern, etc.)
+      - state_management_guide.instructions.md: State file schema, Step 0B/0C/0D patterns
+      - data_driven_guide.instructions.md: Faker patterns, test.each() (if applicable)
+      - [agent].agent.instructions.md: Steps 0A-0E, Step 1-N, Step N+1-N+3
+   e. If any mandatory section missing, read remaining lines
+   f. Output confirmation: "Loaded X instruction files totaling Y lines covering: Communication Rules, Critical Thinking Protocol, MCP Tool Specifications, Memory Patterns, State Management, [Data-Driven Patterns], Agent Procedures"
+   g. CRITICAL: Do NOT proceed without ALL applicable files - 100% context load required
 4. **Execute Agent Steps:** Perform ALL steps from agent's Step-by-Step Procedure section
    - Step 0A: Read .agent File (use read_file tool)
    - Step 0B: Query Memory (use mcp_memory_search_nodes)
@@ -75,8 +89,10 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 **NEVER:**
 - Create gate output files directly from orchestration
+- Skip loading global instruction files (rules, critical_thinking, mcp_integration, memory_patterns, state_management)
 - Skip agent instruction file reading
-- Read partial agent instructions (MUST read complete file - 1000-1700 lines)
+- Read partial instructions (MUST read complete files - verify by checking cross-references)
+- Load agent-specific file without loading global files first
 - Skip agent's Step 0A-0E (mandatory pre-flight steps)
 - Skip agent's sequential thinking (Step 1)
 - Skip agent's checkpoint output (Step N+3)
@@ -84,7 +100,10 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 **ALWAYS:**
 - Output delegation announcement before agent work
-- Load COMPLETE agent instruction file (verify all steps present)
+- Load ALL applicable instruction files (6 global + 1 agent-specific = 7 files for most agents)
+- Load files in dependency order (rules → critical_thinking → mcp_integration → memory_patterns → state_management → data_driven → agent-specific)
+- Verify completeness across ALL loaded files (check cross-references)
+- Output confirmation listing all loaded files with line counts
 - Execute EVERY step from agent's instruction file
 - Use actual tool calls for each step (read_file, mcp_memory_search_nodes, etc.)
 - Let agent create its own output file
