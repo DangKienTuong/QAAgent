@@ -1,67 +1,98 @@
 ---
-applyTo: '**/*.agent,**'
-description: 'Memory patterns reference - Version 2.0'
+applyTo: '**/*.agent'
+description: 'Memory Patterns Reference - Standardized query and entity naming for knowledge management'
 ---
 
-# 🗄️ MEMORY PATTERNS REFERENCE
+# MEMORY PATTERNS REFERENCE
 
 ## Purpose
-This document defines the **standardized query and entity naming patterns** for all agents in the QA automation pipeline. Following these patterns ensures consistent memory storage/retrieval across production runs.
 
----
+Define standardized query and entity naming patterns for all agents in the QA automation pipeline. Following these patterns ensures consistent memory storage and retrieval across production runs, enabling incremental learning and crash recovery.
 
-## 📊 Standardized Naming Convention
+## Core Concepts
 
-### **Entity Names**
+```mermaid
+flowchart TD
+    A[Agent Execution] --> B[Step 0A: Query Memory]
+    B --> C{Patterns Found?}
+    C -->|Yes| D[Apply Learned Knowledge]
+    C -->|No| E[Create New Patterns]
+    D --> F[Execute Workflow]
+    E --> F
+    F --> G[Step N: Store Learnings]
+    G --> H{Verification}
+    H -->|Success| I[Pattern Available for Future Runs]
+    H -->|Fail| J[Retry Once]
+    J --> I
 ```
-{domain}-{feature}-{EntityType}-{version?}
-```
 
-### **Query Format**
-```
-{domain} {feature} {entity-type} patterns
-```
+### Naming Convention
 
-### **Metadata Extraction**
+**Entity Names:** `{domain}-{feature}-{EntityType}-{version?}`
+
+**Query Format:** `{domain} {feature} {entity-type} patterns`
+
+**Metadata Extraction:**
 ```typescript
-const domain = sanitizeFilename(extractDomain(url))    // e.g., "demoqa_com"
-const feature = sanitizeFilename(extractFeature(userStory))  // e.g., "student_registration"
+// Example metadata extraction (non-executable):
+// const domain = sanitizeFilename(extractDomain(url))
+// const feature = sanitizeFilename(extractFeature(userStory))
 ```
 
----
+### Incremental Storage Strategy
 
-## 🎯 Agent-Specific Patterns
+Store patterns after each gate completion (not just at end):
 
-### **1. Orchestration Agent**
+```
+PRE-PROCESSING → Query existing patterns
+GATE 1 → Store TestPattern immediately
+GATE 2 → Store LocatorPattern immediately  
+GATE 3 → Store CodePattern immediately
+GATE 4 (if healing) → Store ErrorSolution
+GATE 5 → Store comprehensive ExecutionHistory
+```
+
+**Benefits:**
+- Resilient to crashes (partial learnings preserved)
+- Enables incremental learning (future runs benefit from partial completions)
+- Better observability (track which gates completed)
+
+## Reference Patterns
+
+## Reference Patterns
+
+### Pattern 1: Orchestration Agent
 
 **File:** `.github/copilot-instructions.md`
 
-**Step 0 Queries:**
+**Query Templates:**
+
 | Query # | Pattern | Example | Purpose |
 |---------|---------|---------|---------|
-| 1 | `{domain} {feature} automation patterns` | `demoqa_com student_registration automation patterns` | Find existing automation for this domain+feature |
+| 1 | `{domain} {feature} automation patterns` | `demoqa_com student_registration automation patterns` | Find existing automation for domain+feature |
 | 2 | `{domain} {feature} execution history` | `demoqa_com student_registration execution history` | Find previous test runs and results |
 | 3 | `{domain} {feature} data-driven patterns` | `demoqa_com student_registration data-driven patterns` | Find data-driven test strategies (conditional) |
 
 **Entities Created:**
-- **After GATE 1:** `{domain}-{feature}-TestPattern`
-- **After GATE 2:** `{domain}-{feature}-LocatorPattern`
-- **After GATE 3:** `{domain}-{feature}-CodePattern`
-- **After GATE 5:** `{domain}-{feature}-ExecutionHistory-{requestId}`
 
----
+| Entity Name | Created After | Purpose |
+|-------------|---------------|---------|
+| `{domain}-{feature}-TestPattern` | GATE 1 | Store test design strategies |
+| `{domain}-{feature}-LocatorPattern` | GATE 2 | Store locator strategies |
+| `{domain}-{feature}-CodePattern` | GATE 3 | Store code generation patterns |
+| `{domain}-{feature}-ExecutionHistory-{requestId}` | GATE 5 | Comprehensive pipeline summary |
 
-### **2. Test Case Designer Agent**
+### Pattern 2: Test Case Designer Agent
 
 **File:** `.github/instructions/test_case_designer.agent.instructions.md`
 
-**Step 0 Query:**
+**Query Template:**
+
 | Query # | Pattern | Example | Purpose |
 |---------|---------|---------|---------|
 | 1 | `{domain} {feature} test patterns` | `demoqa_com student_registration test patterns` | Find existing test case designs |
 
-**Entity Created:**
-- **Step 6 (after completion):** `{domain}-{feature}-TestPattern`
+**Entity Created:** `{domain}-{feature}-TestPattern` (Step 6 after completion)
 
 **Entity Observations:**
 - User story
@@ -73,20 +104,18 @@ const feature = sanitizeFilename(extractFeature(userStory))  // e.g., "student_r
 - Captured at: Step 6 completion
 - Timestamp (ISO 8601)
 
----
-
-### **3. DOM Analysis Agent**
+### Pattern 3: DOM Analysis Agent
 
 **File:** `.github/instructions/dom_analysis.agent.instructions.md`
 
-**Step 0 Queries:**
+**Query Templates:**
+
 | Query # | Pattern | Example | Purpose |
 |---------|---------|---------|---------|
 | 1 | `{domain} {feature} locator patterns` | `demoqa_com student_registration locator patterns` | Find existing locator strategies |
 | 2 | `{domain} {componentType} interaction patterns` | `demoqa_com react-select interaction patterns` | Find component-specific patterns |
 
-**Entity Created:**
-- **Step 5 (after completion):** `{domain}-{feature}-LocatorPattern`
+**Entity Created:** `{domain}-{feature}-LocatorPattern` (Step 5 after completion)
 
 **Entity Observations:**
 - Total elements mapped (count)
@@ -97,19 +126,17 @@ const feature = sanitizeFilename(extractFeature(userStory))  // e.g., "student_r
 - Captured at: Step 5 completion
 - Timestamp (ISO 8601)
 
----
-
-### **4. POM Generator Agent**
+### Pattern 4: POM Generator Agent
 
 **File:** `.github/instructions/pom_generator.agent.instructions.md`
 
-**Step 0 Query:**
+**Query Template:**
+
 | Query # | Pattern | Example | Purpose |
 |---------|---------|---------|---------|
 | 1 | `{domain} {feature} code patterns` | `demoqa_com student_registration code patterns` | Find existing code generation patterns |
 
-**Entity Created:**
-- **Step 9 (after completion):** `{domain}-{feature}-CodePattern`
+**Entity Created:** `{domain}-{feature}-CodePattern` (Step 9 after completion)
 
 **Entity Observations:**
 - Files generated (count)
@@ -124,21 +151,19 @@ const feature = sanitizeFilename(extractFeature(userStory))  // e.g., "student_r
 - Captured at: Step 9 completion
 - Timestamp (ISO 8601)
 
----
-
-### **5. Test Healing Agent**
+### Pattern 5: Test Healing Agent
 
 **File:** `.github/instructions/test_healing.agent.instructions.md`
 
-**Step 0 Queries:**
+**Query Templates:**
+
 | Query # | Pattern | Example | Purpose |
 |---------|---------|---------|---------|
 | 1 | `{domain} {errorType} error solutions` | `demoqa_com TimeoutError error solutions` | Find domain-specific error solutions |
 | 2 | `{domain} {feature} healing patterns` | `demoqa_com student_registration healing patterns` | Find feature-specific healing strategies |
 | 3 | `{errorType} healing strategies` | `TimeoutError healing strategies` | Find generic healing approaches (fallback) |
 
-**Entity Created:**
-- **Step 6 (after healing attempt):** `{domain}-{errorSignature}-ErrorSolution`
+**Entity Created:** `{domain}-{errorSignature}-ErrorSolution` (Step 6 after healing attempt)
 
 **Entity Observations:**
 - Error type (e.g., "TimeoutError")
@@ -157,9 +182,7 @@ const feature = sanitizeFilename(extractFeature(userStory))  // e.g., "student_r
 - Captured at: Step 6 completion
 - Timestamp (ISO 8601)
 
----
-
-## 🔑 Entity Types Reference
+### Pattern 6: Entity Type Reference
 
 | Entity Type | Used By | Purpose | Storage Timing |
 |-------------|---------|---------|----------------|
@@ -169,97 +192,96 @@ const feature = sanitizeFilename(extractFeature(userStory))  // e.g., "student_r
 | `ErrorSolution` | Test Healing | Error resolution strategies | After healing attempt (Step 6) |
 | `ExecutionHistory` | Orchestration | Comprehensive pipeline summary | After GATE 5 |
 
----
+## Integration Points
 
-## 📋 Consistency Rules
+**Used By:** All agents in Step 0A (memory query) and Step N+1 (memory storage)
 
-### ✅ DO:
-- Always use `sanitizeFilename()` on domain and feature
-- Use space separator in queries: `{domain} {feature} {type} patterns`
-- Use hyphen separator in entity names: `{domain}-{feature}-{Type}`
-- Include timestamp in ISO 8601 format in all observations
-- Include "Captured at: {phase} completion" to track when learning occurred
-- Query memory (Step 0) before ANY agent execution
-- Store patterns immediately after successful completion
+**Provides:**
+- Standardized query patterns for retrieving existing knowledge
+- Consistent entity naming for storing new learnings
+- Observation schemas for each entity type
+- Incremental storage strategy for crash recovery
 
-### ❌ DON'T:
-- Mix spaces and hyphens in queries (query uses spaces, entity uses hyphens)
-- Omit domain or feature from queries (always include both for precise matching)
-- Store sensitive data (passwords, API keys, PII)
-- Create duplicate entities (use mcp_memory_add_observations to update existing)
-- Skip timestamp or "Captured at" fields
+**Dependencies:**
+- `mcp_integration_guide.instructions.md` - MCP tool specifications
+- `rules.instructions.md` - Global enforcement rules
 
----
+## Examples
 
-## 🔄 Incremental Storage Strategy
-
-**Problem:** Previously, all learnings were stored only at GATE 5. If pipeline crashed, all knowledge was lost.
-
-**Solution:** Store incrementally after each gate completes successfully.
-
-### Storage Timeline:
-```
-PRE-PROCESSING (Step 0)
-  ↓ Query existing patterns
-GATE 1 ✅ → Store TestPattern immediately
-  ↓
-GATE 2 ✅ → Store LocatorPattern immediately
-  ↓
-GATE 3 ✅ → Store CodePattern immediately
-  ↓
-GATE 4 (if healing) ✅ → Test Healing agent stores ErrorSolution
-  ↓
-GATE 5 ✅ → Store comprehensive ExecutionHistory (summary)
-```
-
-### Benefits:
-- ✅ Resilient to crashes (partial learnings preserved)
-- ✅ Enables incremental learning (future runs can use GATE 1 patterns even if GATE 2 fails)
-- ✅ Better observability (can track which gates completed)
-- ✅ Production-ready (consistent patterns across all runs)
-
----
-
-## 🧪 Example Production Run
+### Example 1: Production Run Query Sequence
 
 **User Story:** "Student submits registration form"  
 **URL:** `https://demoqa.com/automation-practice-form`  
 **Extracted Metadata:**
-- `domain`: `demoqa_com`
-- `feature`: `student_registration`
+- domain: `demoqa_com`
+- feature: `student_registration`
 
-### Queries Executed:
-1. Orchestration Step 0:
-   - `demoqa_com student_registration automation patterns`
-   - `demoqa_com student_registration execution history`
-   - `demoqa_com student_registration data-driven patterns`
+**Queries Executed:**
 
-2. Test Case Designer Step 0:
-   - `demoqa_com student_registration test patterns`
+```typescript
+// Orchestration Step 0 (non-executable):
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration automation patterns" })
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration execution history" })
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration data-driven patterns" })
 
-3. DOM Analysis Step 0:
-   - `demoqa_com student_registration locator patterns`
-   - `demoqa_com react-select interaction patterns`
+// Test Case Designer Step 0 (non-executable):
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration test patterns" })
 
-4. POM Generator Step 0:
-   - `demoqa_com student_registration code patterns`
+// DOM Analysis Step 0 (non-executable):
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration locator patterns" })
+// mcp_memory_search_nodes({ query: "demoqa_com react-select interaction patterns" })
 
-5. Test Healing Step 0 (if triggered):
-   - `demoqa_com TimeoutError error solutions`
-   - `demoqa_com student_registration healing patterns`
-   - `TimeoutError healing strategies`
+// POM Generator Step 0 (non-executable):
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration code patterns" })
 
-### Entities Created:
-1. After GATE 1: `demoqa_com-student_registration-TestPattern`
-2. After GATE 2: `demoqa_com-student_registration-LocatorPattern`
-3. After GATE 3: `demoqa_com-student_registration-CodePattern`
-4. After GATE 4 (if healing): `demoqa_com-{errorSig}-ErrorSolution`
-5. After GATE 5: `demoqa_com-student_registration-ExecutionHistory-{requestId}`
+// Test Healing Step 0 (if triggered, non-executable):
+// mcp_memory_search_nodes({ query: "demoqa_com TimeoutError error solutions" })
+// mcp_memory_search_nodes({ query: "demoqa_com student_registration healing patterns" })
+// mcp_memory_search_nodes({ query: "TimeoutError healing strategies" })
+```
 
----
+### Example 2: Entity Creation Sequence
 
-## 📌 Version History
+**Entities Created During Pipeline:**
 
-- **v2.0** (2025-11-06): Added incremental storage, standardized query patterns, consistent entity naming
-- **v1.0** (Initial): Single GATE 5 storage only
+```typescript
+// After GATE 1 (non-executable):
+// Entity: "demoqa_com-student_registration-TestPattern"
+// Type: "TestPattern"
+
+// After GATE 2 (non-executable):
+// Entity: "demoqa_com-student_registration-LocatorPattern"
+// Type: "LocatorPattern"
+
+// After GATE 3 (non-executable):
+// Entity: "demoqa_com-student_registration-CodePattern"
+// Type: "CodePattern"
+
+// After GATE 4 if healing (non-executable):
+// Entity: "demoqa_com-timeouterror_login-ErrorSolution"
+// Type: "ErrorSolution"
+
+// After GATE 5 (non-executable):
+// Entity: "demoqa_com-student_registration-ExecutionHistory-<UNIQUE_REQUEST_ID>"
+// Type: "ExecutionHistory"
+```
+
+## Constraints
+
+**NEVER:**
+- Mix spaces and hyphens in queries (queries use spaces, entities use hyphens)
+- Omit domain or feature from queries (always include both for precise matching)
+- Store sensitive data (passwords, API keys, PII)
+- Create duplicate entities (use `mcp_memory_add_observations` to update existing)
+- Skip timestamp or "Captured at" fields
+
+**ALWAYS:**
+- Use `sanitizeFilename()` on domain and feature
+- Use space separator in queries: `{domain} {feature} {type} patterns`
+- Use hyphen separator in entity names: `{domain}-{feature}-{Type}`
+- Include timestamp in ISO 8601 format in all observations
+- Include "Captured at: {phase} completion" to track when learning occurred
+- Query memory (Step 0A) before agent execution
+- Store patterns immediately after successful completion
+- Verify storage succeeded with `mcp_memory_open_nodes`
 

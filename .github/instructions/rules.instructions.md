@@ -1,400 +1,302 @@
 ---
-applyTo: '**/*.agent,**'
-description: 'Global rules and protocols for all agents - Version 2.0'
+applyTo: '**/*.agent'
+description: 'Global rules and protocols for all agents'
 ---
 
-# 🌐 GLOBAL AGENT RULES & PROTOCOLS
+# GLOBAL AGENT RULES & PROTOCOLS
 
-## ⚠️ CRITICAL: Communication Protocol
+## Purpose
 
-**TypeScript Code in Instructions = DOCUMENTATION ONLY**
+Define core operating principles, communication standards, and mandatory protocols for all agents in the QA automation pipeline. Establish single source of truth for cross-agent consistency.
 
-All TypeScript code blocks in these instructions are for **SCHEMA DOCUMENTATION** to show data structure. They are NOT templates for your responses.
+## Reference Documentation
 
-**✅ CORRECT Agent Communication:**
-- Natural language descriptions ("I will analyze the user story and generate 5 test cases")
-- JSON format matching documented schemas
-- Tool invocations with clear explanations
+| Guide | Purpose |
+|-------|---------|
+| `critical_thinking_protocol.instructions.md` | Mandatory skepticism framework (5 pillars) |
+| `mcp_integration_guide.instructions.md` | MCP tool specifications and usage patterns |
+| `memory_patterns_reference.instructions.md` | Memory query and entity naming standards |
+| `state_management_guide.instructions.md` | State file persistence and retrieval |
+| `data_driven_guide.instructions.md` | Test data generation and parameterization |
 
-**❌ INCORRECT Agent Communication:**
-- TypeScript code snippets in responses
-- Pseudocode implementations
-- Function definitions or interfaces
+## Communication Rules
 
-**Example - Correct Response:**
+### Code in Instructions = Documentation Only
+
+All TypeScript/JavaScript examples are **structural templates**, not executable code.
+
+**Correct Agent Output:**
 ```json
+// Example output structure (non-executable)
 {
-  "agentName": "TestCaseDesigner",
+  "agentName": "<AGENT_NAME>",
   "status": "SUCCESS",
-  "testCases": [
-    {
-      "testId": "TC_001",
-      "description": "Verify login with valid credentials"
-    }
-  ]
+  "outputData": { }
 }
 ```
 
-**Example - Incorrect Response:**
+**Incorrect Agent Output:**
 ```typescript
-// ❌ NEVER respond like this:
-const testCases: TestCase[] = [{
-  testId: "TC_001",
-  description: "..."
-}];
+// ❌ NEVER return TypeScript code
+// const output = { agentName: "...", status: "..." };
 ```
 
----
+### Output Format Standards
 
-## 📋 Available Agents
+**File Output:** Write structured JSON to `.state/<DOMAIN>-<FEATURE>-gate<N>-output.json`
 
-| Agent Name | File Pattern | Responsibility |
-|------------|-------------|----------------|
+**Console Output:** Natural language progress updates via logger
+
+**Schema Template:**
+```typescript
+// Required fields in all agent outputs (non-executable example):
+// {
+//   agentName: "<AGENT_NAME>",
+//   timestamp: "<TIMESTAMP_ISO8601>",
+//   status: "SUCCESS" | "PARTIAL" | "FAILED",
+//   executionTimeMs: <DURATION_MS>,
+//   outputData: <AGENT_SPECIFIC_OUTPUT>,
+//   validationResult: {
+//     passed: <BOOLEAN>,
+//     score: <0_TO_1>,
+//     issues: ["<ISSUE_1>", "<ISSUE_2>"]
+//   },
+//   executionTrace: {
+//     startTime: "<TIMESTAMP_ISO8601>",
+//     endTime: "<TIMESTAMP_ISO8601>",
+//     executedSteps: ["<STEP_ID_1>", "<STEP_ID_2>"],
+//     skippedSteps: ["<STEP_ID_3>"],
+//     failedSteps: [],
+//     checkpointCompleted: <BOOLEAN>
+//   }
+// }
+```
+
+## Agent Registry
+
+| Agent | File Pattern | Responsibility |
+|-------|--------------|----------------|
 | Test Case Designer | `test_case_designer.agent` | Convert user stories to structured test cases |
 | DOM Analysis | `dom_analysis.agent` | Map UI elements to locator strategies |
 | POM Generator | `pom_generator.agent` | Generate Page Object Model code |
 | Test Healing | `test_healing.agent` | Auto-repair failing tests |
+| Orchestration | `copilot-instructions.md` | Coordinate pipeline execution |
 
----
+## Core Operating Principles
 
-## 🎯 Core Operating Principles
-
-### 1. Sequential Thinking Requirement
-
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for detailed parameter specifications.
-
-**WHEN TO USE** `mcp_sequential-th_sequentialthinking`:
-- ✅ Multi-step analysis (3+ steps)
-- ✅ Error diagnosis requiring root cause analysis
-- ✅ Complex decision-making with trade-offs
-- ✅ Data-driven test strategy planning
-
-**WHEN TO SKIP**:
-- ❌ Simple lookups or reads
-- ❌ Direct file operations with clear instructions
-- ❌ Single-step validations
-
-**Required Parameters:**
-```typescript
-{
-  thought: string;              // REQUIRED: Current thinking step (be specific and actionable)
-  thoughtNumber: number;        // REQUIRED: Current step (starts at 1)
-  totalThoughts: number;        // REQUIRED: Estimated total (can adjust dynamically)
-  nextThoughtNeeded: boolean;   // REQUIRED: true if more analysis needed, false when done
-  isRevision?: boolean;         // OPTIONAL: true if revising previous thought
-  revisesThought?: number;      // OPTIONAL: Which thought is being reconsidered
-  branchFromThought?: number;   // OPTIONAL: Branch point for alternatives
-  branchId?: string;            // OPTIONAL: Branch identifier (e.g., "approach-A")
-  needsMoreThoughts?: boolean;  // OPTIONAL: true if realizing need for more steps
-}
+```mermaid
+flowchart TD
+    A[Agent Starts] --> B{Step 0A: Memory Query}
+    B -->|Patterns Found| C[Apply Learned Knowledge]
+    B -->|No Patterns| D[Create New Patterns]
+    C --> E{Step 0B: Sequential Thinking}
+    D --> E
+    E -->|Complex 3+ Steps| F[Plan with MCP]
+    E -->|Simple Task| G[Proceed Directly]
+    F --> H[Execute Main Workflow]
+    G --> H
+    H --> I[Validate Output]
+    I --> J{Quality Check}
+    J -->|Pass| K[Store Learnings]
+    J -->|Fail| L[Return Error]
+    K --> M[Output Checkpoint]
+    M --> N[Complete]
 ```
 
-**Minimum Thoughts Required**: 3 (analysis → solution → verification)
+### Principle 1: Critical Thinking Mandate
 
----
+📖 **Reference:** See `critical_thinking_protocol.instructions.md` for complete framework.
 
-### 2. Memory-First Protocol
+Apply 5 pillars to ALL decisions:
+1. **Mandatory Skepticism** - Challenge every decision
+2. **Proactive Failure Enumeration** - List 3-5 failure modes before operation
+3. **Assumption Surfacing** - Make implicit assumptions explicit
+4. **Alternative Consideration** - Generate 2+ alternatives, justify choice
+5. **Semantic Validation** - Validate meaning, not just structure
 
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for query patterns and storage examples.
+### Principle 2: Memory-First Protocol
 
-**MANDATORY STEP 0 for ALL Agents:**
+📖 **Reference:** See `mcp_integration_guide.instructions.md` Section 2 for query patterns.
 
-Before executing main workflow, MUST query memory for existing patterns:
+**Step 0A (MANDATORY):** Query memory before execution.
 
-```typescript
-// STEP 0: Query memory (MANDATORY)
-const patterns = await mcp_memory_search_nodes({
-  query: "{domain} {feature} patterns"  // Customize per agent
-})
+**Step 0B (MANDATORY):** Store learnings after completion with verification.
 
-if (patterns.entities.length > 0) {
-  logger.info(`Found ${patterns.entities.length} existing patterns - using learned knowledge`)
-  // Apply learned patterns to current execution
-} else {
-  logger.info('No existing patterns found - will learn during execution')
-}
-```
+### Principle 3: Sequential Thinking Requirement
 
-**Query Pattern Templates by Agent:**
-- **Test Case Designer:** `"{domain} {feature} test patterns"`
-- **DOM Agent:** `"{domain} locator patterns"` + `"component-type interaction patterns"`
-- **POM Generator:** `"{feature} page object patterns"` + `"self-healing wrapper patterns"`
-- **Test Healing:** `"error-type solution patterns {domain}"`
-- **Orchestration:** `"{domain} automation patterns"` + `"{domain} {feature} execution history"`
+📖 **Reference:** See `mcp_integration_guide.instructions.md` Section 1 for parameter details.
 
-**MANDATORY: Store Learnings After Success:**
+**When Required:**
+- Multi-step analysis (3+ steps)
+- Error diagnosis with root cause analysis
+- Complex decision-making with trade-offs
 
-```typescript
-await mcp_memory_create_entities({
-  entities: [{
-    name: "{domain}-{feature}-{PatternType}",  // Unique identifier
-    entityType: "TestPattern|LocatorPattern|CodePattern|ErrorSolution|ExecutionHistory",
-    observations: [
-      "Key fact 1 with details",
-      "Key fact 2 with context",
-      "Captured at: {phase} completion"
-    ]
-  }]
-})
-```
+**When Not Required:**
+- Simple lookups or file reads
+- Single-step validations
 
----
+Minimum: 3 thoughts (analysis → solution → verification)
 
-### 3. Instruction Adherence Protocol
+### Principle 4: Instruction Priority Hierarchy
 
 **Priority Order:**
-1. Agent-specific instructions (highest priority)
+1. Agent-specific instructions (highest)
 2. Global rules (this file)
-3. General copilot instructions (lowest priority)
+3. General copilot instructions (lowest)
 
-**Conflict Resolution:**
-```
-IF agent-specific instruction conflicts with global rule:
-  → Follow agent-specific instruction
-  → Log conflict for review
+## Agent Invocation Protocol
 
-IF unclear instruction:
-  → Use sequential thinking to analyze ambiguity
-  → Choose most conservative interpretation
-  → Document assumption in output
-```
-
----
-
-### 3. Agent Invocation Protocol
-
-**File Naming Convention:**
-```
-<agent_name>.agent
+```mermaid
+sequenceDiagram
+    participant O as Orchestration
+    participant F as .agent File
+    participant S as System
+    participant A as Agent
+    
+    O->>F: Write input JSON
+    O->>F: Read file to activate
+    S->>A: Load instructions
+    A->>F: Read input
+    A->>A: Execute workflow
+    A->>F: Write output to .state/
+    O->>F: Read output
 ```
 
-**Invocation Steps:**
-1. Create EMPTY file with `.agent` extension in `.github/agents/`
-2. System reads empty file
-3. System locates matching instructions via `applyTo` pattern
-4. Agent activates with matched instructions ONLY
-5. Agent ignores all other instructions
-
-**Example:**
-```bash
-# To invoke Test Case Designer:
-touch .github/agents/test_case_designer.agent
-
-# System automatically:
-# - Finds test_case_desinger.agent.instructions.md
-# - Loads only those instructions
-# - Executes agent in isolation
+**Standard .agent File Schema:**
+```json
+// Example agent file structure (non-executable):
+{
+  "agentName": "<AGENT_NAME>",
+  "timestamp": "<TIMESTAMP_ISO8601>",
+  "input": {
+    "metadata": {
+      "domain": "<SANITIZED_DOMAIN>",
+      "feature": "<SANITIZED_FEATURE>",
+      "url": "<ORIGINAL_URL>"
+    }
+  }
+}
 ```
 
----
 
-## 🚨 Failure Handling Protocol
+### Rule 1: Memory-First (MANDATORY)
+
+Query memory before ANY main execution using `mcp_memory_search_nodes`.
+
+```typescript
+// Example query pattern (non-executable):
+// mcp_memory_search_nodes({
+//   query: "<DOMAIN> <FEATURE> <PATTERN_TYPE> patterns"
+// })
+```
+
+**Penalty:** Agent execution incomplete, must restart.
+
+### Rule 2: Planning (MANDATORY for complex operations)
+
+Use `mcp_sequential-th_sequentialthinking` for operations with 3+ steps.
+
+```typescript
+// Example planning invocation (non-executable):
+// mcp_sequential-th_sequentialthinking({
+//   thought: "<DETAILED_ANALYSIS>",
+//   thoughtNumber: 1,
+//   totalThoughts: 3,
+//   nextThoughtNeeded: true
+// })
+```
+
+**Penalty:** Decision-making lacks transparency and auditability.
+
+### Rule 3: Learning (MANDATORY after success)
+
+Store patterns in memory using `mcp_memory_create_entities` with verification.
+
+```typescript
+// Example storage pattern (non-executable):
+// mcp_memory_create_entities({
+//   entities: [{
+//     name: "<DOMAIN>-<FEATURE>-<PATTERN_TYPE>",
+//     entityType: "<PATTERN_TYPE>",
+//     observations: ["<OBSERVATION_1>", "<OBSERVATION_2>"]
+//   }]
+// })
+```
+
+**Penalty:** Knowledge lost, future runs cannot benefit from learnings.
+
+### Rule 4: Checkpoint (MANDATORY after major steps)
+
+Output self-audit checklist showing completed MCPs.
+
+**Template:**
+```markdown
+**CHECKPOINT: <PHASE_NAME>**
+
+Required MCPs:
+✅ mcp_memory_search_nodes - Queried <PATTERN_TYPE>
+✅ mcp_sequential-th_sequentialthinking - Planned approach (3 thoughts)
+✅ <OTHER_TOOL> - <STATUS>
+
+MISSING STEPS: <LIST_OR_NONE>
+
+ACTION: <PROCEEDING_OR_GOING_BACK>
+```
+
+**Penalty:** Execution not auditable, may have skipped steps.
+
+### Rule 5: Parameter Completeness (MANDATORY)
+
+All MCP tool calls must include ALL required parameters.
+
+📖 **Reference:** See `mcp_integration_guide.instructions.md` for specifications.
+
+**Penalty:** Tool call will fail or produce incomplete results.
+
+## Error Handling
 
 ### Error Classification
 
-| Error Type | Action | Max Retries | Escalation |
-|------------|--------|-------------|------------|
+| Type | Action | Max Retries | Escalation |
+|------|--------|-------------|------------|
 | Input Validation | Return error immediately | 0 | User |
-| Transient (timeout, network) | Retry with backoff | 3 | Orchestration |
-| Agent Logic Error | Log + use fallback strategy | 1 | Orchestration |
-| Critical System Error | Abort pipeline | 0 | User |
+| Transient | Retry with backoff | 3 | Orchestration |
+| Agent Logic | Log + fallback strategy | 1 | Orchestration |
+| Critical System | Abort pipeline | 0 | User |
 
-### Escalation Chain
+### Escalation Flow
 
-```
-Agent Error
-    ↓
-Log to Audit Trail
-    ↓
-Retry if transient (max 3x)
-    ↓
-If still failing → Notify Orchestration
-    ↓
-Orchestration decides: fallback OR abort
-    ↓
-If abort → Checkpoint state for resume
-    ↓
-Return detailed error to user
+```mermaid
+flowchart TD
+    A[Agent Error] --> B[Log to Audit Trail]
+    B --> C{Transient?}
+    C -->|Yes| D[Retry max 3x]
+    C -->|No| E[Notify Orchestration]
+    D -->|Still Failing| E
+    E --> F{Orchestration Decision}
+    F -->|Fallback| G[Use Degraded Mode]
+    F -->|Abort| H[Checkpoint State]
+    H --> I[Return Error to User]
 ```
 
----
+## Security & Safety Rules
 
-## 📊 Output Standards
+**Input Sanitization:** Sanitize all user inputs for:
+- File path traversal: `../`, absolute paths
+- Command injection: `;`, `&&`, `|`
+- XSS patterns: `<script>`, `eval()`
 
-### Required Fields in ALL Agent Outputs
+**File Operations:**
+- Use absolute paths only
+- Validate file existence before read
+- Use atomic writes (temp → rename)
 
-**IMPORTANT: Return as JSON, NOT TypeScript code**
+**External Calls:**
+- Timeout all fetch operations (30s default)
+- Validate URLs before fetching
+- Handle authentication failures gracefully
 
-```typescript
-// This TypeScript block shows the SCHEMA you should follow
-// Your actual output should be JSON matching this structure
-{
-  agentName: string;           // e.g., "TestCaseDesigner"
-  version: string;             // e.g., "2.0"
-  timestamp: string;           // ISO 8601 format
-  status: "SUCCESS" | "PARTIAL" | "FAILED";
-  executionTimeMs: number;
-  outputData: any;             // Agent-specific output
-  validationResult: {
-    passed: boolean;
-    score: number;             // 0.0 - 1.0
-    issues: string[];
-  };
-  metadata: {
-    inputHash: string;         // For caching
-    dependencies: string[];    // Other agents used
-  };
-}
-```
-
----
-
-## ⚠️ MCP ENFORCEMENT RULES
-
-**These are HARD REQUIREMENTS - not suggestions:**
-
-### 1. 🛑 MEMORY-FIRST RULE
-**Before ANY main execution, you MUST call `mcp_memory_search_nodes` to query existing patterns.**
-
-```typescript
-// MANDATORY: Step 0 for all agents
-const patterns = await mcp_memory_search_nodes({
-  query: "{appropriate pattern query}"
-})
-```
-
-**Penalty for violation:** Agent execution is incomplete. You MUST restart with memory query.
-
-### 2. 🛑 PLANNING RULE
-**Before complex operations (3+ steps), you MUST use `mcp_sequential-th_sequentialthinking` to plan approach.**
-
-```typescript
-// MANDATORY: Before complex execution
-await mcp_sequential-th_sequentialthinking({
-  thought: "Detailed analysis of what needs to be done and how",
-  thoughtNumber: 1,
-  totalThoughts: 3,  // Minimum 3 thoughts required
-  nextThoughtNeeded: true
-})
-```
-
-**Penalty for violation:** Decision-making lacks transparency and auditability.
-
-### 3. 🛑 LEARNING RULE
-**After EVERY successful completion or learning, you MUST store patterns in memory.**
-
-```typescript
-// MANDATORY: After completion
-await mcp_memory_create_entities({
-  entities: [/* all patterns discovered */]
-})
-```
-
-**Penalty for violation:** Knowledge is lost, future runs cannot benefit from learnings.
-
-### 4. 🛑 CHECKPOINT RULE
-**After each major step, you MUST output a self-audit checklist showing completed MCPs.**
-
-```markdown
-**✅ CHECKPOINT: {Phase Name}**
-
-Required MCPs for this phase:
-✅ mcp_memory_search_nodes - Queried {pattern type}
-✅ mcp_sequential-th_sequentialthinking - Planned approach (3 thoughts)
-✅ {other required tools} - {status}
-
-MISSING STEPS: {list any incomplete items}
-
-ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding to next phase"}
-```
-
-**Penalty for violation:** Execution flow is not auditable and may have skipped steps.
-
-### 5. 🛑 PARAMETER COMPLETENESS RULE
-**All MCP tool calls MUST include ALL required parameters with meaningful values.**
-
-**Penalty for violation:** Tool call will fail or produce incomplete results.
-
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
-
----
-
-## 🔒 Security & Safety Rules
-
-1. **Input Sanitization**: All user inputs MUST be sanitized for:
-   - File path traversal (`../`, absolute paths)
-   - Command injection (`;`, `&&`, `|`)
-   - XSS in generated code (`<script>`, `eval()`)
-
-2. **File Operations**: 
-   - Always use absolute paths
-   - Validate file exists before reading
-   - Use atomic writes (temp file → rename)
-
-3. **External Calls**:
-   - Timeout all fetch operations (30s default)
-   - Validate URLs before fetching
-   - Handle authentication failures gracefully
-
----
-
-## 🧪 Testing Requirements
-
-Every agent MUST:
-1. Validate inputs before processing
-2. Produce deterministic outputs (same input → same output)
-3. Include example inputs/outputs in instructions
-4. Define success criteria measurably
-
----
-
-## 📝 Documentation Standards
-
-All agent instructions MUST include:
-- ✅ Role & Responsibility (one sentence)
-- ✅ Input Contract (TypeScript-style schema)
-- ✅ Output Contract (TypeScript-style schema)
-- ✅ Execution Workflow (numbered steps)
-- ✅ Validation Rules (how to verify success)
-- ✅ Error Handling (classification + recovery)
-- ✅ Examples (minimum 2: simple + complex)
-- ✅ Critical Constraints (what NOT to do)
-- ✅ Dependencies (what agent needs from others)
-
----
-
-## 🔄 State Management
-
-### Checkpointing Rules
-
-**When to Checkpoint:**
-- After each GATE completion in Orchestration
-- Before any destructive operation (file write/delete)
-- After agent completes successfully
-
-**Checkpoint Structure:**
-```typescript
-{
-  pipelineId: string;
-  currentGate: number;
-  completedGates: number[];
-  gateOutputs: Record<number, any>;
-  timestamp: string;
-  resumable: boolean;
-}
-```
-
-**Resume Protocol:**
-1. Load checkpoint from `.state/{pipelineId}.json`
-2. Validate checkpoint integrity (hash check)
-3. Skip completed gates
-4. Resume from `currentGate`
-
----
-
-## 🎯 Quality Gates
-
-All agents must pass these gates before output is accepted:
+## Quality Gates
 
 | Gate | Criteria | Threshold |
 |------|----------|-----------|
@@ -404,7 +306,54 @@ All agents must pass these gates before output is accepted:
 | Security Check | No injection/XSS patterns | 100% |
 | Compilation | Generated code compiles | 100% |
 
-**If any gate fails:**
-- Retry with refined input (1x)
-- If still failing → Return error with specifics
-- Orchestration decides whether to abort or continue with degraded mode
+**Failure Protocol:**
+1. Retry with refined input (1x)
+2. If still failing → Return error with specifics
+3. Orchestration decides: abort or continue with degraded mode
+
+## State Management
+
+📖 **Reference:** See `state_management_guide.instructions.md` for complete schema.
+
+**Checkpoint Triggers:**
+- After each GATE completion (Orchestration)
+- Before destructive operations (file write/delete)
+- After agent completes successfully
+
+**Resume Protocol:**
+1. Load checkpoint from `.state/<PIPELINE_ID>.json`
+2. Validate checkpoint integrity
+3. Skip completed gates
+4. Resume from current gate
+
+## Documentation Standards
+
+All agent instructions must include:
+- Purpose (one paragraph)
+- Input Contract (commented schema)
+- Output Contract (commented schema)
+- Step-by-Step Procedure (numbered steps)
+- Validation Rules (measurable criteria)
+- Constraints (what NOT to do)
+- Error Handling (classification + recovery)
+- Example Exchange (one complete example)
+
+## Constraints
+
+**NEVER:**
+- Execute code from instruction examples
+- Skip memory queries (Step 0A)
+- Skip sequential thinking for complex operations (3+ steps)
+- Skip storing learnings after success
+- Return TypeScript code as agent output
+- Use dynamic timestamps or UUIDs in examples
+- Mix natural language with structured JSON output
+
+**ALWAYS:**
+- Query memory before main execution
+- Use static placeholders in examples
+- Validate output against schema
+- Output checkpoint after major steps
+- Reference supporting guides instead of duplicating
+- Use Mermaid diagrams for process flows
+- Maintain imperative, neutral tone

@@ -1,1145 +1,1549 @@
 ---
 applyTo: '**/pom_generator.agent'
-description: 'POM Generator Agent - Creates Page Object Model code from test designs and DOM mappings - References: TEMPLATE_GUIDE.md (architecture), data_driven_guide.instructions.md, mcp_integration_guide.instructions.md, state_management_guide.instructions.md - Version 2.0'
+description: 'POM Generator Agent - Creates Page Object Model code from test designs and DOM mappings'
 ---
 
 # POM GENERATOR AGENT
 
-## ⚠️ CRITICAL: Communication Protocol
+## Purpose
 
-**TypeScript Code in Instructions = DOCUMENTATION ONLY**
+Transform DOM mappings and test logic into executable Playwright/TypeScript code following Page Object Model patterns with self-healing capabilities. Generate page object classes with fallback locator chains, test specifications using appropriate patterns (single/forEach/test.each), and register components in fixture system.
 
-All TypeScript code blocks in these instructions are for **SCHEMA DOCUMENTATION** to show data structure. They are NOT templates for your responses.
+**Cross-References:**
+- See `data_driven_guide.instructions.md` for test.each() patterns and data file integration
+- See `state_management_guide.instructions.md` for loading GATE 1/2 output and writing GATE 3 state
+- See `memory_patterns_reference.instructions.md` for CodePattern entity naming and storage
+- See `mcp_integration_guide.instructions.md` for sequential thinking and memory tool usage
+- See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework
 
-**✅ CORRECT Agent Communication:**
-- Natural language descriptions ("I will generate Page Object Model code with self-healing locators")
-- JSON format matching documented schemas
-- Tool invocations with clear explanations
+---
 
-**❌ INCORRECT Agent Communication:**
-- TypeScript code snippets in responses
+## Communication Rules
+
+**TypeScript Code in Instructions = Documentation Only**
+
+All TypeScript/JavaScript examples are **structural templates** showing data structure and logic patterns. They are NOT executable code for your responses.
+
+**Correct Agent Output:**
+- Natural language: "I will generate Page Object Model code with self-healing locators for 5 form fields"
+- JSON format matching output schema
+- Tool invocations with explanations
+
+**Incorrect Agent Output:**
+- TypeScript code snippets
 - Pseudocode implementations
-- Function definitions or interfaces
+- Function definitions or class declarations
 
 ---
 
-## 🎯 Role & Responsibility
-You are the **POM Generator Agent** - responsible for transforming DOM mappings and test logic into executable Playwright/TypeScript code following Page Object Model patterns with self-healing capabilities.
+## Input Contract
 
----
+**Agent Input File Location:** `.github/agents/pom_generator.agent`
 
-## 📥 Input Contract
-
-**NOTE: This TypeScript interface shows the expected structure - accept input as JSON matching this schema**
+**Input Schema:**
 
 ```typescript
-interface POMGeneratorInput {
-  testCases: Array<{
-    testId: string;
-    description: string;
-    testSteps: Array<{
-      action: string;
-      target: string;
-      data?: any;
-    }>;
-    expectedResult: {
-      status: 'pass' | 'fail';
-      assertions: Array<any>;
-    };
-  }>;
-  
-  elementMappings: Array<{
-    logicalName: string;
-    testStep: string;
-    locators: {
-      primary: { type: string; value: string; confidenceScore: number };
-      fallback1: { type: string; value: string; confidenceScore: number };
-      fallback2?: { type: string; value: string; confidenceScore: number };
-    };
-    componentType?: 'standard' | 'react-select' | 'datepicker';
-    interactionPattern?: string;
-  }>;
-  
-  dataStrategy?: {
-    type: 'single' | 'data-driven';
-    dataFile?: string;
-    totalCases: number;
-  };
-  
-  metadata: {
-    domain: string;
-    feature: string;
-    framework: 'playwright';
-    language: 'typescript';
-  };
-}
+// Example input structure (non-executable):
+// {
+//   agentName: "POMAgent",
+//   timestamp: "<TIMESTAMP_ISO8601>",
+//   input: {
+//     metadata: {
+//       domain: "<SANITIZED_DOMAIN>",
+//       feature: "<SANITIZED_FEATURE>",
+//       url: "<ORIGINAL_URL>",
+//       framework: "playwright",
+//       language: "typescript"
+//     },
+//     testCases: [
+//       {
+//         testId: "TC_001",
+//         description: "Valid registration",
+//         testSteps: [
+//           { action: "fill", target: "firstName", data: "<FIRST_NAME>" },
+//           { action: "click", target: "submit" }
+//         ],
+//         expectedResult: {
+//           status: "pass",
+//           assertions: [{ type: "url", value: "/success" }]
+//         }
+//       }
+//     ] OR "<STATE_FILE_PATH>",  // Can be array or path to .state/{domain}-{feature}-gate1-output.json
+//     elementMappings: [
+//       {
+//         logicalName: "firstNameInput",
+//         testStep: "fill first name",
+//         locators: {
+//           primary: { type: "id", value: "firstName", confidenceScore: 0.95 },
+//           fallback1: { type: "placeholder", value: "First Name", confidenceScore: 0.85 },
+//           fallback2: { type: "css", value: "input[name='firstName']", confidenceScore: 0.70 }
+//         },
+//         componentType: "standard",
+//         interactionPattern: "fill"
+//       }
+//     ] OR "<STATE_FILE_PATH>",  // Can be array or path to .state/{domain}-{feature}-gate2-output.json
+//     dataStrategy: {
+//       type: "single" | "data-driven",
+//       dataFile: "<PATH_TO_DATA_JSON>",  // If data-driven
+//       totalCases: <COUNT>
+//     }
+//   }
+// }
 ```
+
+**Required Fields:**
+- `metadata.domain`, `metadata.feature`, `metadata.url`: Non-empty strings
+- `testCases`: Array with length > 0 OR valid state file path
+- `elementMappings`: Array with length > 0 OR valid state file path
 
 ---
 
-## 📤 Output Contract
+## Output Contract
+
+**Output State File Location:** `.state/{domain}-{feature}-gate3-output.json`
+
+**Output Schema:**
 
 ```typescript
-interface POMGeneratorOutput {
-  agentName: 'POMGenerator';
-  version: '2.0';
-  timestamp: string;
-  status: 'SUCCESS' | 'PARTIAL' | 'FAILED';
-  executionTimeMs: number;
-  
-  generatedFiles: Array<{
-    filePath: string;
-    fileType: 'page-object' | 'test-spec' | 'fixture';
-    content: string;
-    linesOfCode: number;
-  }>;
-  
-  pageObjects: Array<{
-    className: string;
-    filePath: string;
-    methods: Array<{
-      name: string;
-      purpose: string;
-      hasFailover: boolean;
-    }>;
-  }>;
-  
-  testSpecs: Array<{
-    fileName: string;
-    filePath: string;
-    testPattern: 'single' | 'forEach' | 'test.each' | 'test.each.parallel';
-    testCount: number;
-  }>;
-  
-  fixtures: Array<{
-    name: string;
-    registered: boolean;
-    filePath: string;
-  }>;
-  
-  compilationResult: {
-    hasErrors: boolean;
-    errors: Array<{
-      file: string;
-      line: number;
-      message: string;
-    }>;
-  };
-  
-  validationResult: {
-    passed: boolean;
-    score: number;
-    issues: string[];
-  };
-  
-  metadata: {
-    inputHash: string;
-    dependencies: string[];
-  };
-}
-```
-
----
-
-## ⚙️ Execution Workflow
-
-### **⚠️ CRITICAL: Sequential Thinking is ALWAYS MANDATORY**
-
-**Why POM Generation Always Requires Sequential Thinking:**
-
-POM generation is a **10-step process** (Steps 0-10), which far exceeds the global 3-step threshold requiring sequential thinking:
-
-1. **Step 0:** Query memory for patterns
-2. **Step 1:** Plan strategy with sequential thinking ← **MANDATORY**
-3. **Step 2:** Analyze input and select test pattern
-4. **Step 3:** Generate page object classes
-5. **Step 4:** Register in fixture
-6. **Step 5:** Generate test specs
-7. **Step 6:** Handle special components
-8. **Step 7:** Validate compilation
-9. **Step 8:** Rollback on failure
-10. **Step 9:** Store patterns in memory
-11. **Step 10:** Self-audit checkpoint
-
-**Complexity Factors:**
-- Multi-file generation (page objects + test specs + fixtures)
-- Self-healing locator strategies (primary + 2 fallbacks)
-- Special component handling (react-select, datepickers, etc.)
-- TypeScript compilation validation
-- Fixture registration without conflicts
-- Pattern storage for future reuse
-
-**Conclusion:** There is NO scenario where POM generation is simple enough to skip sequential thinking. The "if 3+ page objects" condition from the previous version was incorrect and has been removed. Sequential thinking is now MANDATORY for ALL POM generation tasks.
-
----
-
-### **STEP 0: Query Memory for Code Patterns (MANDATORY)**
-
-**📖 REFERENCE:** See `memory_patterns_reference.instructions.md` Section "POM Generator Agent" for standardized query patterns. See `mcp_integration_guide.instructions.md` Section 2 for complete MCP tool details.
-
-**Purpose:** Query knowledge base for existing page object patterns, self-healing wrappers, and component code before generating code.
-
-**When:** ALWAYS as the very first step.
-
-**Execution:**
-
-```typescript
-logger.info('🔍 STEP 0: Querying memory for existing code patterns')
-
-// Query 1: Domain and feature-specific code patterns
-const domain = input.metadata.domain
-const feature = input.metadata.feature
-const codePatterns = await mcp_memory_search_nodes({
-  query: `${domain} ${feature} code patterns`
-})
-
-// Query 2: Self-healing wrapper patterns (generic across domains)
-const wrapperPatterns = await mcp_memory_search_nodes({
-  query: `playwright self-healing wrapper patterns`
-})
-
-// Query 3: Special component handling patterns (domain-specific if possible)
-const componentType = detectSpecialComponents(input.elementMappings) // e.g., 'react-select', 'react-datepicker'
-if (componentType) {
-  const componentPatterns = await mcp_memory_search_nodes({
-    query: `${domain} ${componentType} component code patterns`
-  })
-}
-
-// Process results
-if (codePatterns.entities.length > 0) {
-  logger.info(`✅ Found ${codePatterns.entities.length} existing code patterns`)
-  
-  codePatterns.entities.forEach(entity => {
-    logger.info(`Pattern: ${entity.name}`)
-    entity.observations.forEach(obs => logger.info(`  - ${obs}`))
-    
-    // Store for reuse during code generation
-    knownPatterns.push({
-      name: entity.name,
-      observations: entity.observations
-    })
-  })
-} else {
-  logger.info('No existing patterns found - will discover and store new patterns')
-}
-
-if (wrapperPatterns.entities.length > 0) {
-  logger.info(`✅ Found ${wrapperPatterns.entities.length} self-healing wrapper patterns`)
-  
-  wrapperPatterns.entities.forEach(entity => {
-    // Extract known wrapper strategies
-    if (entity.name.includes('element-interaction')) {
-      knownWrappers.set('element-interaction', entity.observations)
-    }
-  })
-}
-```
-
-**Output:** Natural language summary like:
-```
-"I queried memory and found 2 existing page object patterns for registration forms. Pattern 1 shows a reusable elementWithFallback() wrapper method with try-catch for 3 locator strategies. I will apply this pattern when generating page objects."
+// Example output structure (non-executable):
+// {
+//   gate: 3,
+//   agent: "POMGenerator",
+//   status: "SUCCESS" | "PARTIAL" | "FAILED",
+//   metadata: {
+//     domain: "<DOMAIN>",
+//     feature: "<FEATURE>",
+//     url: "<URL>"
+//   },
+//   output: {
+//     generatedFiles: [
+//       {
+//         filePath: "tests/test-objects/gui/pageObjects/pages/<FEATURE>.page.ts",
+//         fileType: "page-object",
+//         linesOfCode: <COUNT>,
+//         methods: ["goto", "fillFirstName", "clickSubmit", "getSuccessMessage"]
+//       },
+//       {
+//         filePath: "tests/tests-management/gui/<FEATURE>/<TEST_NAME>.spec.ts",
+//         fileType: "test-spec",
+//         linesOfCode: <COUNT>,
+//         pattern: "single" | "forEach" | "test.each"
+//       },
+//       {
+//         filePath: "tests/test-objects/gui/pageObjects/pageFixture.ts",
+//         fileType: "fixture",
+//         linesOfCode: <COUNT>,
+//         updates: ["Added <PAGE_NAME>Page registration"]
+//       }
+//     ],
+//     compilationErrors: <COUNT>,  // Should be 0
+//     selfHealingEnabled: <BOOLEAN>,
+//     componentReuse: <COUNT>
+//   },
+//   validation: {
+//     score: <0_TO_100>,
+//     issues: ["<ISSUE_1>"],
+//     passed: <BOOLEAN>
+//   },
+//   executionTrace: {
+//     startTime: "<TIMESTAMP_ISO8601>",
+//     endTime: "<TIMESTAMP_ISO8601>",
+//     executedSteps: ["Step0A", "Step0B", "Step1", "Step2", "Step3", "Step4", "Step5", "Step6", "Step7A", "Step7B", "Step8"],
+//     skippedSteps: [],
+//     failedSteps: [],
+//     checkpointCompleted: <BOOLEAN>
+//   }
+// }
 ```
 
 ---
 
-### **STEP 0B: Load Previous Gate Output (MANDATORY)**
+## Step-by-Step Procedure
 
-**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete implementation pattern.
+```mermaid
+flowchart TD
+    A[Step 0A: Read Input] --> B[Step 0B: Query Memory]
+    B --> C[Step 0C: Load GATE 1+2 Output]
+    C --> D[Step 0D: Pre-Flight Validation]
+    D --> E[Step 0E: Verify Pipeline]
+    E --> F[Step 1: Sequential Thinking]
+    F --> G[Step 2: Select Test Pattern]
+    G --> H[Step 3: Generate Page Objects]
+    H --> I[Step 4: Register in Fixture]
+    I --> J[Step 5: Generate Test Specs]
+    J --> K[Step 6: Validate Compilation]
+    K --> L[Step 7A: Write State File]
+    L --> M[Step 7B: Store Learnings]
+    M --> N[Step 8: Checkpoint]
+```
 
-**Purpose:** Load element mappings from GATE 2 output to determine which page object methods to generate.
+### Step 0A: Read Input from .agent File
 
-**When:** ALWAYS after Step 0A (memory queries).
-
-**Execution:**
+Read agent input file created by orchestration:
 
 ```typescript
-logger.info('📂 STEP 0B: Loading previous gate output from GATE 2')
-
-const domain = input.metadata?.domain
-const feature = input.metadata?.feature
-
-if (!domain || !feature) {
-  throw new Error('domain and feature metadata are required for GATE 3 execution')
-}
-
-const gate2File = `.state/${domain}-${feature}-gate2-output.json`
-
-try {
-  const fileContent = await read_file(gate2File, 1, 10000)
-  const gate2State = JSON.parse(fileContent)
-  
-  if (gate2State.status === 'SUCCESS' || gate2State.status === 'PARTIAL') {
-    const elementMappings = gate2State.output
-    logger.info(`✅ Loaded GATE 2 output: ${elementMappings.elementMappings.length} element mappings`)
-    logger.info(`   SPA detected: ${elementMappings.isSPA || false}`)
-    logger.info(`   Special components: ${elementMappings.specialComponents?.length || 0}`)
-    
-    // Use element mappings from state file
-    elementMappingsFromState = elementMappings
-    
-    // Also need test cases for test spec generation - load GATE 1
-    const gate1File = `.state/${domain}-${feature}-gate1-output.json`
-    const gate1Content = await read_file(gate1File, 1, 10000)
-    const gate1State = JSON.parse(gate1Content)
-    testCasesFromState = gate1State.output.testCases
-    
-    logger.info(`✅ Also loaded GATE 1 output: ${testCasesFromState.length} test cases for spec generation`)
-  } else {
-    throw new Error(`GATE 2 status is ${gate2State.status} - cannot proceed`)
-  }
-  
-} catch (error) {
-  logger.error(`❌ Failed to load GATE 2 output: ${error.message}`)
-  throw new Error('Cannot execute GATE 3 without GATE 2 output')
-}
+// Example read operation (non-executable):
+// const agentFileContent = read_file('.github/agents/pom_generator.agent', 1, 10000)
+// const agentInput = JSON.parse(agentFileContent)
+// const input = agentInput.input
+// const metadata = input.metadata
 ```
 
----
+### Step 0B: Query Memory for Code Patterns
 
-### **STEP 1: Plan Code Generation Strategy (MANDATORY)**
-
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 1 for complete parameter details.
-
-**Purpose:** Plan comprehensive approach for code generation using structured reasoning. POM generation is inherently complex (9-step workflow), so sequential thinking is ALWAYS required.
-
-**When:** ALWAYS - every POM generation task requires strategic planning.
-
-**Why MANDATORY:** POM generation involves: analyzing input complexity, selecting test patterns, generating page objects with self-healing, handling special components, updating fixtures, validating compilation, and storing patterns. This multi-phase process (9 steps total) ALWAYS exceeds the 3-step threshold requiring sequential thinking.
-
-**Execution (4-Thought Sequence):**
+Query knowledge base for existing code generation patterns:
 
 ```typescript
-logger.info('🧠 STEP 1: Planning code generation strategy with sequential thinking')
-
-// Thought 1: Analyze input complexity and scope
-await mcp_sequential-th_sequentialthinking({
-  thought: `Analyzing POM generation scope: ${input.testCases.length} test case(s) with ${input.elementMappings.length} UI elements to map. Data strategy: ${input.dataStrategy?.type || 'single'} (${input.dataStrategy?.totalCases || 1} test execution(s)). Special components detected: ${input.elementMappings.filter(e => e.componentType !== 'standard').length} (types: ${[...new Set(input.elementMappings.filter(e => e.componentType !== 'standard').map(e => e.componentType))].join(', ') || 'none'}). Framework: ${input.metadata.framework} with ${input.metadata.language}. Estimated files to generate: 2-4 (page object + test spec + fixture update + optional data file).`,
-  thoughtNumber: 1,
-  totalThoughts: 4,
-  nextThoughtNeeded: true
-})
-
-// Thought 2: Plan code structure and test pattern
-await mcp_sequential-th_sequentialthinking({
-  thought: `Planning code architecture: Test pattern selection based on ${input.dataStrategy?.totalCases || 1} case(s): ${input.dataStrategy?.totalCases <= 3 ? 'SINGLE pattern (individual test() blocks)' : input.dataStrategy?.totalCases <= 10 ? 'FOREACH pattern (testData.forEach with async)' : 'TEST.EACH pattern (Playwright native parallelization)'}. Page object structure: Class-based with constructor accepting Page parameter, private locator definitions (primary + fallback1 + fallback2 for each element), public async methods for user actions. File organization: page object in tests/test-objects/gui/pageObjects/pages/, test spec in tests/tests-management/gui/${input.metadata.feature}/, fixtures in shared pageFixture.ts.`,
-  thoughtNumber: 2,
-  totalThoughts: 4,
-  nextThoughtNeeded: true
-})
-
-// Thought 3: Plan self-healing and error handling
-await mcp_sequential-th_sequentialthinking({
-  thought: `Planning self-healing implementation: ${knownWrappers.size > 0 ? `Reusing ${knownWrappers.size} known wrapper pattern(s) from memory` : 'Creating new wrapper helpers'}. Strategy: Each interactive method (fill, click, select) will try primary locator first, catch failures, attempt fallback1, then fallback2 as last resort. Timeout per attempt: 2000ms. Logging: debug on primary success, warn on fallback activation, info on fallback success. ${input.elementMappings.filter(e => e.componentType !== 'standard').length > 0 ? `Special component handlers needed: ${input.elementMappings.filter(e => e.componentType !== 'standard').map(e => e.componentType).join(', ')} - will generate dedicated methods with component-specific interaction logic.` : 'No special component handlers needed - standard Playwright actions sufficient.'}`,
-  thoughtNumber: 3,
-  totalThoughts: 4,
-  nextThoughtNeeded: true
-})
-
-// Thought 4: Plan validation and quality assurance
-await mcp_sequential-th_sequentialthinking({
-  thought: `Planning validation workflow: Step 1 - Generate all files with proper TypeScript syntax. Step 2 - Use get_errors() tool to validate compilation of generated page object and test spec files. Step 3 - Check fixture registration doesn't create duplicates by reading existing fixture content. Step 4 - Verify all element mappings have corresponding page object methods (${input.elementMappings.length} mappings should produce ${input.elementMappings.length} methods minimum). Step 5 - Ensure test spec imports page object correctly and uses fixture injection pattern. Rollback strategy: If compilation fails, restore any modified files and report detailed error diagnostics.`,
-  thoughtNumber: 4,
-  totalThoughts: 4,
-  nextThoughtNeeded: false
-})
-
-logger.info('✅ Sequential thinking complete - proceeding with code generation')
+// Example memory queries (non-executable):
+// mcp_memory_search_nodes({ query: "{domain} {feature} code patterns" })
+// mcp_memory_search_nodes({ query: "{domain} page object patterns" })
+// mcp_memory_search_nodes({ query: "self-healing wrapper patterns" })
 ```
 
-**Output:** Natural language summary after each thought:
-```
-"Thought 1/4: Analyzing scope - 1 test case with 11 UI elements, single data strategy, 3 special components (datepicker, react-select x2). Will generate 3-4 files."
+**Output:** Natural language summary like "Found 2 existing code patterns for demoqa.com showing page object structure and test.each() usage."
 
-"Thought 2/4: Planning architecture - SINGLE test pattern, class-based page object with 11+ methods, organized in standard framework directories."
+### Step 0C: Load Previous Gate Output
 
-"Thought 3/4: Planning self-healing - No known wrappers found, will create new try-catch fallback pattern. Need special handlers for datepicker and react-select components."
-
-"Thought 4/4: Planning validation - Will use get_errors() for compilation check, verify fixture registration, ensure all 11 elements have methods, test rollback if failures."
-```
-
----
-
-### **Step 2: Analyze Input and Select Test Pattern**
+Load test cases from GATE 1 and element mappings from GATE 2:
 
 ```typescript
-function selectTestPattern(input: POMGeneratorInput): TestPattern {
-  const { dataStrategy } = input;
-  
-  // Decision logic
-  if (dataStrategy?.type === 'single') {
-    return 'single';
-  }
-  
-  const totalCases = dataStrategy?.totalCases || 1;
-  
-  if (totalCases <= 3) {
-    return 'single'; // Write individual test() functions
-  }
-  
-  if (totalCases <= 10) {
-    return 'forEach'; // Use testData.forEach()
-  }
-  
-  // For 10+ cases, use Playwright's test.each for parallel execution
-  return 'test.each.parallel';
-}
+// Example loading logic (non-executable):
+// let testCases
+// if (typeof input.testCases === 'string') {
+//   const gate1Content = read_file(input.testCases, 1, 10000)
+//   const gate1State = JSON.parse(gate1Content)
+//   testCases = gate1State.output.testCases
+// } else {
+//   testCases = input.testCases
+// }
+//
+// let elementMappings
+// if (typeof input.elementMappings === 'string') {
+//   const gate2Content = read_file(input.elementMappings, 1, 10000)
+//   const gate2State = JSON.parse(gate2Content)
+//   elementMappings = gate2State.output.elementMappings
+// }
 ```
 
----
+### Step 0D: Pre-Flight Validation
 
-### **Step 3: Generate Page Object Classes**
+Verify prerequisites before execution:
+
+**Validation Checks:**
+
+| Check | Validation | Error Message |
+|-------|------------|---------------|
+| Metadata fields | `domain`, `feature`, `url` all non-empty | "Missing metadata: {field}" |
+| Test cases structure | Array with length > 0, all have `testId`, `testSteps` | "Invalid testCases structure" |
+| Element mappings structure | Array with length > 0, all have `logicalName`, `locators.primary` | "Invalid elementMappings structure" |
+| Test step coverage | Every test step has corresponding element mapping | "Unmapped test steps detected: {count}" |
+| Locator completeness | All element mappings have primary + 1 fallback minimum | "Insufficient fallbacks for element: {name}" |
+
+**On Failure:** Throw error with clear remediation steps. Do NOT proceed to main execution.
+
+### Step 0E: Verify Pipeline State
+
+Check overall pipeline progress:
 
 ```typescript
-// Example generated page object
-export default class RegistrationPage {
-  private page: Page;
-  
-  constructor(page: Page) {
-    this.page = page;
-  }
-  
-  // Locators with fallback strategies
-  private firstNameInput = {
-    primary: () => this.page.locator('#firstName'),
-    fallback1: () => this.page.getByPlaceholder('First Name'),
-    fallback2: () => this.page.locator('input[name="firstName"]')
-  };
-  
-  private submitButton = {
-    primary: () => this.page.locator('#submit'),
-    fallback1: () => this.page.getByRole('button', { name: /submit/i }),
-    fallback2: () => this.page.getByText('Submit')
-  };
-  
-  /**
-   * Fill first name field with self-healing fallback
-   * @param value - First name to enter
-   */
-  async fillFirstName(value: string) {
-    await this.fillWithFallback(this.firstNameInput, value, 'firstName');
-  }
-  
-  /**
-   * Click submit button with self-healing fallback
-   */
-  async clickSubmit() {
-    await this.clickWithFallback(this.submitButton, 'submit button');
-  }
-  
-  /**
-   * Self-healing fill method with fallback chain
-   */
-  private async fillWithFallback(
-    locatorSet: LocatorSet,
-    value: string,
-    fieldName: string
-  ) {
-    try {
-      await locatorSet.primary().fill(value);
-      logger.debug(`Filled ${fieldName} using primary locator`);
-    } catch (primaryError) {
-      logger.warn(`Primary locator failed for ${fieldName}, trying fallback1`);
-      try {
-        await locatorSet.fallback1().fill(value);
-        logger.info(`Fallback1 succeeded for ${fieldName}`);
-      } catch (fallback1Error) {
-        logger.warn(`Fallback1 failed for ${fieldName}, trying fallback2`);
-        await locatorSet.fallback2().fill(value);
-        logger.info(`Fallback2 succeeded for ${fieldName}`);
-      }
-    }
-  }
-  
-  /**
-   * Self-healing click method with fallback chain
-   */
-  private async clickWithFallback(
-    locatorSet: LocatorSet,
-    elementName: string
-  ) {
-    try {
-      await locatorSet.primary().click();
-      logger.debug(`Clicked ${elementName} using primary locator`);
-    } catch (primaryError) {
-      logger.warn(`Primary locator failed for ${elementName}, trying fallback1`);
-      try {
-        await locatorSet.fallback1().click();
-        logger.info(`Fallback1 succeeded for ${elementName}`);
-      } catch (fallback1Error) {
-        logger.warn(`Fallback1 failed for ${elementName}, trying fallback2`);
-        await locatorSet.fallback2().click();
-        logger.info(`Fallback2 succeeded for ${elementName}`);
-      }
-    }
-  }
-  
-  /**
-   * Verify success message is visible
-   */
-  async verifySuccessMessage() {
-    await expect(this.page.locator('.success-message')).toBeVisible();
-  }
-}
+// Example pipeline check (non-executable):
+// const todoList = manage_todo_list({ operation: 'read' })
+// const gate3Todo = todoList.find(todo => todo.id === <GATE_3_ID>)
+//
+// if (gate3Todo.status !== 'in-progress') {
+//   throw new Error("Cannot execute GATE 3: Not in progress")
+// }
+//
+// const previousGates = todoList.filter(todo => todo.id < <GATE_3_ID>)
+// const anyFailed = previousGates.some(todo => todo.status === 'failed')
+//
+// if (anyFailed) {
+//   throw new Error("Cannot execute GATE 3: Previous gate failed")
+// }
 ```
 
----
+### Step 1: Sequential Thinking (MANDATORY)
 
-### **Step 4: Register Page Object in Fixture**
+**When:** ALWAYS for POM generation (5 thoughts minimum)
+
+**Purpose:** Plan code generation strategy, template selection, self-healing integration
+
+**Thought Pattern:**
+
+1. **Thought 1: Analyze test pattern**
+   - "I will analyze test structure: {count} test cases with {pattern} data strategy. Test steps include {types}."
+   
+2. **Thought 2: Select code templates**
+   - "Based on {totalCases} test cases, I will use {pattern} test pattern. Page object requires methods: {methods}."
+   
+3. **Thought 3: Plan self-healing logic**
+   - "Element mappings show {confidence}% average confidence. I will generate fallback chains: primary → fallback1 → fallback2 with error enrichment."
+   
+4. **Thought 4: Identify special components and reusable code**
+   - "Detected special components: {types}. Will use interaction patterns: {patterns}. Checking for reusable components: {componentNames}."
+   
+5. **Thought 5: Validate completeness**
+   - "All test steps mapped. Will generate {count} files: page object, test spec, fixture update. Reusing {count} existing components. Compilation validation required."
+
+**Invocation:**
 
 ```typescript
-async function registerInFixture(pageObject: PageObjectInfo): Promise<void> {
-  const fixturePath = 'tests/test-objects/fixtures/pageFixture.ts';
-  
-  // Read existing fixture
-  const content = await read_file(fixturePath, 1, 1000);
-  
-  // Check if already registered
-  const alreadyExists = content.includes(`${pageObject.varName}: ${pageObject.className}`);
-  
-  if (alreadyExists) {
-    logger.info(`${pageObject.className} already in fixture, skipping`);
-    return;
-  }
-  
-  // Add import
-  const importStatement = `import ${pageObject.className} from '../pages/${pageObject.fileName}';`;
-  
-  // Add to fixture type
-  const fixtureProperty = `  ${pageObject.varName}: ${pageObject.className};`;
-  
-  // Add to fixture implementation
-  const fixtureImplementation = `  ${pageObject.varName}: async ({ page }, use) => {
-    await use(new ${pageObject.className}(page));
-  },`;
-  
-  // Apply changes using replace_string_in_file
-  // ... (implementation details)
-  
-  logger.info(`✅ Registered ${pageObject.className} in fixture`);
-}
+// Example sequential thinking (non-executable):
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Analyzing test structure: 5 test cases with data-driven strategy. Test steps include fill (3 fields), click (1 button), verify (1 assertion). Average confidence: 87%.",
+//   thoughtNumber: 1,
+//   totalThoughts: 5,
+//   nextThoughtNeeded: true
+// })
 ```
 
----
+**Critical Thinking Checkpoint 1 (Thought 5):**
 
-### **Step 5: Generate Test Specs**
+❓ **Challenge:** Why could all test steps be mapped but code generation still fail?
+→ **Analysis:** Element mappings may reference invalid locators (typos, wrong syntax), special components may need custom interaction logic not in standard templates
+→ **Mitigation:** Validate locator syntax before code generation, detect special components and apply correct interaction patterns
 
-#### **Pattern A: Single Test**
-```typescript
-import { test, expect } from '@fixtures/pageFixture';
+### Step 2: Component Reuse Detection (MANDATORY)
 
-test.describe('Registration Form', () => {
-  test.describe.configure({ retries: 3 });
-  
-  test('TC_001: User can submit valid registration', async ({ registrationPage }) => {
-    await registrationPage.fillFirstName('John');
-    await registrationPage.fillEmail('john@example.com');
-    await registrationPage.fillMobile('1234567890');
-    await registrationPage.clickSubmit();
-    
-    await registrationPage.verifySuccessMessage();
-  });
-});
-```
+**Purpose:** Detect and import existing component classes instead of regenerating them. This reduces code duplication, maintains consistency, and leverages already-tested components.
 
-#### **Pattern B: forEach (3-10 cases)**
-```typescript
-import { test, expect } from '@fixtures/pageFixture';
-import testData from '@testdata/example-registration-data.json';
+**Existing Components Location:** `tests/test-objects/gui/pageObjects/components/`
 
-test.describe('Registration Form - Data Driven', () => {
-  test.describe.configure({ retries: 3 });
-  
-  testData.validData.forEach((testCase) => {
-    test(`${testCase.testCaseId}: ${testCase.description}`, async ({ registrationPage }) => {
-      await registrationPage.fillForm(testCase.data);
-      await registrationPage.clickSubmit();
-      
-      await expect(registrationPage.successMessage).toBeVisible();
-    });
-  });
-  
-  testData.invalidData.forEach((testCase) => {
-    test(`${testCase.testCaseId}: ${testCase.description}`, async ({ registrationPage }) => {
-      await registrationPage.fillForm(testCase.data);
-      await registrationPage.clickSubmit();
-      
-      const error = await registrationPage.getValidationError(testCase.expected.field);
-      expect(error).toContain(testCase.expected.message);
-    });
-  });
-});
-```
+**Available Components:**
 
-#### **Pattern C: test.each Parallel (10+ cases)**
-```typescript
-import { test, expect } from '@fixtures/pageFixture';
-import testData from '@testdata/example-registration-data.json';
+| Component | Purpose | Key Methods |
+|-----------|---------|-------------|
+| `appHeaders.ts` | Application header interactions | `validatePageTitle()`, `selectAppSubscriptionFromHeader()` |
+| `appNavigation.ts` | Side navigation menu | `accessMenuOnNavBar(menuItem)` with `NavMenuItem` enum |
+| `dialogPrivacySettings.ts` | Privacy dialog handling | `acceptAllPrivacySetting()` |
 
-test.describe.parallel('Registration Form - Parameterized', () => {
-  test.describe.configure({ retries: 3 });
-  
-  test.each(testData.validData)(
-    '$testCaseId: $description',
-    async ({ data, expected }, { registrationPage }) => {
-      await registrationPage.fillForm(data);
-      await registrationPage.clickSubmit();
-      
-      const result = await registrationPage.getResult();
-      expect(result.status).toBe(expected.status);
-    }
-  );
-});
-```
-
----
-
-### **Step 6: Handle Special Component Patterns**
+**Detection Strategy:**
 
 ```typescript
-// React-Select pattern
-async selectState(state: string) {
-  // Click container to open dropdown
-  await this.stateContainer.primary().click();
-  await this.page.waitForTimeout(500);
-  
-  // Type in search input
-  await this.stateInput.primary().type(state);
-  await this.page.waitForTimeout(500);
-  
-  // Press Enter to select
-  await this.stateInput.primary().press('Enter');
-}
-
-// Datepicker pattern
-async selectDate(month: string, year: string, day: string) {
-  // Click input to open picker
-  await this.dateInput.primary().click();
-  
-  // Select month
-  await this.page.locator('.react-datepicker__month-select').selectOption(month);
-  
-  // Select year
-  await this.page.locator('.react-datepicker__year-select').selectOption(year);
-  
-  // Click day
-  await this.page.locator(`.react-datepicker__day--${day}`).first().click();
-}
+// Example component detection logic (non-executable):
+// detectReusableComponents(elementMappings, testSteps) {
+//   const reusableComponents = []
+//   
+//   // Pattern 1: Header elements
+//   const hasHeaderElements = elementMappings.some(em => 
+//     /header|title|user menu|subscription/i.test(em.logicalName)
+//   )
+//   if (hasHeaderElements) {
+//     reusableComponents.push({
+//       name: 'AppHeaders',
+//       path: 'tests/test-objects/gui/pageObjects/components/appHeaders',
+//       usage: 'Header validation and subscription selection'
+//     })
+//   }
+//   
+//   // Pattern 2: Navigation elements
+//   const hasNavElements = elementMappings.some(em => 
+//     /nav|sidebar|menu|navigation/i.test(em.logicalName) ||
+//     testSteps.some(step => /navigate to|access menu|click menu/i.test(step.action))
+//   )
+//   if (hasNavElements) {
+//     reusableComponents.push({
+//       name: 'AppNavigationBar',
+//       path: 'tests/test-objects/gui/pageObjects/components/appNavigation',
+//       usage: 'Side navigation menu interactions'
+//     })
+//   }
+//   
+//   // Pattern 3: Privacy dialog
+//   const hasPrivacyDialog = elementMappings.some(em => 
+//     /privacy|cookie|consent|accept all/i.test(em.logicalName)
+//   )
+//   if (hasPrivacyDialog) {
+//     reusableComponents.push({
+//       name: 'PrivacySettingsDialog',
+//       path: 'tests/test-objects/gui/pageObjects/components/dialogPrivacySettings',
+//       usage: 'Privacy consent dialog handling'
+//     })
+//   }
+//   
+//   return reusableComponents
+// }
 ```
 
----
+**Component Integration Patterns:**
 
-### **Step 7: Validate Compilation**
+**Pattern 1: Composition (Recommended)**
+```typescript
+// Example component composition in page object (non-executable):
+// import { Page } from '@playwright/test'
+// import { pageActions } from '@utilities/ui/page-actions'
+// import { logger } from '@utilities/reporter/custom-logger'
+// import AppHeaders from 'tests/test-objects/gui/pageObjects/components/appHeaders'
+// import AppNavigationBar from 'tests/test-objects/gui/pageObjects/components/appNavigation'
+//
+// export default class DocumentSearchPage {
+//   private page: Page
+//   private header: AppHeaders
+//   private navigation: AppNavigationBar
+//   
+//   constructor(page: Page) {
+//     this.page = page
+//     this.header = new AppHeaders()
+//     this.navigation = new AppNavigationBar()
+//   }
+//   
+//   // Delegate to component methods
+//   async validatePageTitle(title: string) {
+//     await this.header.validatePageTitle(title)
+//   }
+//   
+//   async navigateToDocumentUpload() {
+//     await this.navigation.accessMenuOnNavBar(NavMenuItem.DocumentUpload)
+//   }
+//   
+//   // Page-specific methods
+//   async searchDocument(query: string) {
+//     await pageActions.fill(this.page, this.locators.searchInput.primary, query)
+//   }
+// }
+```
+
+**Pattern 2: Direct Method Calls**
+```typescript
+// Example direct component usage in test (non-executable):
+// import { test } from 'tests/test-objects/gui/pageObjects/pageFixture'
+// import { expect } from '@utilities/reporter/custom-expect'
+// import AppNavigationBar, { NavMenuItem } from 'tests/test-objects/gui/pageObjects/components/appNavigation'
+//
+// test('User can navigate to document search', async ({ page }) => {
+//   const navigation = new AppNavigationBar()
+//   
+//   await test.step('Navigate to document search', async () => {
+//     await navigation.accessMenuOnNavBar(NavMenuItem.DocumentSearch)
+//   })
+//   
+//   await test.step('Verify page loaded', async () => {
+//     await expect(page).toHaveURL(/document-search/)
+//   })
+// })
+```
+
+**Decision Logic: When to Use Components**
 
 ```typescript
-async function validateCompilation(generatedFiles: string[]): Promise<CompilationResult> {
-  // Use get_errors to check TypeScript compilation
-  const errors = await get_errors(generatedFiles);
-  
-  if (errors.length > 0) {
-    logger.error(`❌ ${errors.length} compilation errors found`);
-    
-    errors.forEach(err => {
-      logger.error(`  ${err.file}:${err.line} - ${err.message}`);
-    });
-    
-    return {
-      hasErrors: true,
-      errors: errors
-    };
-  }
-  
-  logger.info('✅ All generated files compile successfully');
-  return { hasErrors: false, errors: [] };
-}
+// Example decision logic (non-executable):
+// shouldUseComponent(componentName, testSteps) {
+//   const componentUsageCriteria = {
+//     AppHeaders: {
+//       keywords: ['header', 'title', 'subscription', 'user menu'],
+//       minMatchingSteps: 1
+//     },
+//     AppNavigationBar: {
+//       keywords: ['navigate', 'menu', 'navigation', 'sidebar'],
+//       minMatchingSteps: 1
+//     },
+//     PrivacySettingsDialog: {
+//       keywords: ['privacy', 'cookie', 'consent', 'accept all'],
+//       minMatchingSteps: 1
+//     }
+//   }
+//   
+//   const criteria = componentUsageCriteria[componentName]
+//   const matchingSteps = testSteps.filter(step => 
+//     criteria.keywords.some(keyword => 
+//       step.action.toLowerCase().includes(keyword) ||
+//       step.target.toLowerCase().includes(keyword)
+//     )
+//   )
+//   
+//   return matchingSteps.length >= criteria.minMatchingSteps
+// }
 ```
 
----
+**Code Generation Integration:**
 
-### **Step 8: Rollback on Failure**
+1. **Detect:** Run detection logic during Step 2
+2. **Import:** Add import statements at top of generated page object
+3. **Initialize:** Create component instances in constructor
+4. **Delegate:** Generate methods that delegate to component methods
+5. **Document:** Add comments explaining component purpose
+
+**Output to State File:**
 
 ```typescript
-async function generateWithRollback(input: POMGeneratorInput): Promise<POMGeneratorOutput> {
-  // Create backup of files that will be modified
-  const backupPaths: string[] = [];
-  
-  try {
-    // Generate files
-    const generatedFiles = await generateFiles(input);
-    
-    // Validate compilation
-    const compilationResult = await validateCompilation(generatedFiles.map(f => f.filePath));
-    
-    if (compilationResult.hasErrors) {
-      throw new CompilationError('Generated code has errors', compilationResult.errors);
-    }
-    
-    return {
-      status: 'SUCCESS',
-      generatedFiles,
-      compilationResult
-    };
-    
-  } catch (error) {
-    logger.error('Generation failed, rolling back changes');
-    
-    // Restore backups
-    await restoreBackups(backupPaths);
-    
-    return {
-      status: 'FAILED',
-      generatedFiles: [],
-      compilationResult: {
-        hasErrors: true,
-        errors: [{ file: 'N/A', line: 0, message: error.message }]
-      }
-    };
-  }
-}
+// Example state file with component reuse (non-executable):
+// {
+//   "reusableComponents": [
+//     {
+//       "name": "AppHeaders",
+//       "path": "tests/test-objects/gui/pageObjects/components/appHeaders",
+//       "methods": ["validatePageTitle", "selectAppSubscriptionFromHeader"],
+//       "usage": "Header validation and subscription selection"
+//     },
+//     {
+//       "name": "AppNavigationBar",
+//       "path": "tests/test-objects/gui/pageObjects/components/appNavigation",
+//       "methods": ["accessMenuOnNavBar"],
+//       "usage": "Side navigation menu interactions"
+//     }
+//   ]
+// }
 ```
 
----
+**Critical Thinking Checkpoint 2:**
 
-### **Step 9A: Write State File (MANDATORY)**
+❓ **Challenge:** Why use component composition instead of duplicating component logic in each page object?
 
-**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete schema details.
+→ **Analysis:**
+1. **Duplication:** Copying header logic to every page object creates 10+ copies of same code
+2. **Maintenance:** Changing header structure requires updating all copies (error-prone)
+3. **Testing:** Component tested once, reused everywhere (higher quality)
+4. **Consistency:** Same header behavior across all pages
 
-**Purpose:** Persist generated code information to structured JSON file for GATE 4 (Test Execution).
+❓ **Challenge:** What if component doesn't exist but test steps match pattern?
 
-**When:** ALWAYS after successful code generation, BEFORE memory storage.
+→ **Analysis:** Detection logic may produce false positives (e.g., "title" in form label, not page title)
 
-**Execution:**
+→ **Mitigation:**
+- Require strong keyword matches (multiple criteria)
+- Log component detection decisions for transparency
+- Provide fallback: generate inline if component not suitable
+- Document when NOT to use component (single-use elements)
+
+❓ **Challenge:** How to handle component API changes (method renamed, signature changed)?
+
+→ **Analysis:** Generated code may break if component evolves
+
+→ **Mitigation:**
+- Store component version metadata in memory (reference latest working state)
+- Run compilation check after generation (catches API mismatches)
+- Include component usage examples in documentation
+- Update component detection patterns when components change
+
+### Step 3: Select Test Pattern
+
+**Decision Matrix:**
+
+| Total Cases | Pattern | Rationale |
+|-------------|---------|-----------|
+| 1-3 | `single` | Individual test() functions (readable, simple) |
+| 4-10 | `forEach` | Loop with testData.forEach() (balanced) |
+| 10+ | `test.each` | Playwright native parallel execution (scalable) |
+
+**Pattern Selection Logic:**
 
 ```typescript
-logger.info('📝 STEP 9A: Writing gate output to state file')
-
-const gateStateFile = {
-  gate: 3,
-  agent: 'POMAgent',
-  status: output.validationResult.score >= 90 ? 'SUCCESS' : 'PARTIAL',
-  metadata: {
-    domain: input.metadata.domain,
-    feature: input.metadata.feature,
-    url: input.url
-  },
-  output: output,  // Complete GeneratedCode object
-  validation: {
-    score: output.validationResult.score,
-    issues: output.validationResult.issues,
-    passed: output.validationResult.score >= 90
-  }
-}
-
-await create_file(
-  `.state/${input.metadata.domain}-${input.metadata.feature}-gate3-output.json`,
-  JSON.stringify(gateStateFile, null, 2)
-)
-
-logger.info(`✅ State file created: .state/${input.metadata.domain}-${input.metadata.feature}-gate3-output.json`)
-```logger.info(`✅ State file created: .state/${input.metadata.requestId}-gate3-output.json`)
-logger.info(`   Status: ${gateStateFile.status}, Score: ${gateStateFile.validation.score}%`)
+// Example pattern selection (non-executable):
+// selectTestPattern(dataStrategy) {
+//   if (dataStrategy?.type === 'single') return 'single'
+//   
+//   const totalCases = dataStrategy?.totalCases || 1
+//   
+//   if (totalCases <= 3) return 'single'
+//   if (totalCases <= 10) return 'forEach'
+//   return 'test.each'
+// }
 ```
 
----
+### Step 3: Generate Page Object Classes
 
-### **Step 9B: Store Patterns in Memory (MANDATORY)**
-
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 2.3 for complete details.
-
-**Purpose:** Store discovered code generation patterns and self-healing strategies for future reuse.
-
-**When:** ALWAYS after successful code generation.
-
-**Execution:**
+**Template Structure:**
 
 ```typescript
-logger.info('💾 STEP 9B: Storing code patterns in memory')
-
-const entitiesToStore = []
-
-// Store code generation pattern
-entitiesToStore.push({
-  name: `${metadata.domain}-${metadata.feature}-CodePatterns`,
-  entityType: 'CodePattern',
-  observations: [
-    `Files generated: ${output.generatedFiles.length}`,
-    `Page objects: ${output.pageObjects.length}`,
-    `Test pattern: ${output.testSpecs[0].testPattern}`,
-    `Test count: ${output.testSpecs[0].testCount}`,
-    `Framework: playwright`,
-    `Language: typescript`,
-    `Self-healing wrappers: ${output.pageObjects.filter(po => po.methods.some(m => m.name.includes('WithFallback'))).length}`,
-    `Special components: ${input.elementMappings.filter(e => e.componentType !== 'standard').length}`,
-    `Compilation: ${output.compilationResult.hasErrors ? 'FAILED' : 'SUCCESS'}`,
-    `Data strategy: ${input.dataStrategy?.type || 'single'}`,
-    `Captured at: GATE 3 code generation`
-  ]
-})
-
-// Store self-healing wrapper pattern (if new)
-const hasElementWithFallback = output.generatedFiles.some(f => 
-  f.content.includes('elementWithFallback')
-)
-
-if (hasElementWithFallback) {
-  entitiesToStore.push({
-    name: `${metadata.domain}-self-healing-wrapper-pattern`,
-    entityType: 'CodePattern',
-    observations: [
-      `Pattern: elementWithFallback() helper method`,
-      `Strategy: Try primary locator → fallback1 → fallback2`,
-      `Error handling: try-catch with timeout`,
-      `Return type: Locator`,
-      `Used in: ${output.pageObjects.length} page objects`,
-      `Captured at: GATE 3 self-healing pattern`
-    ]
-  })
-}
-
-// Store special component handling patterns
-const specialComponents = input.elementMappings.filter(e => e.componentType !== 'standard')
-if (specialComponents.length > 0) {
-  const componentTypes = [...new Set(specialComponents.map(c => c.componentType))]
-  
-  componentTypes.forEach(type => {
-    entitiesToStore.push({
-      name: `${metadata.domain}-${type}-component-code-pattern`,
-      entityType: 'CodePattern',
-      observations: [
-        `Component type: ${type}`,
-        `Occurrences: ${specialComponents.filter(c => c.componentType === type).length}`,
-        `Generated methods: ${type === 'react-select' ? 'fillReactSelect()' : type === 'datepicker' ? 'selectDatepicker()' : 'custom method'}`,
-        `Interaction pattern: ${specialComponents.find(c => c.componentType === type)?.interactionPattern || 'N/A'}`,
-        `Captured at: GATE 3 component code generation`
-      ]
-    })
-  })
-}
-
-// Store in memory
-await mcp_memory_create_entities({
-  entities: entitiesToStore
-})
-
-logger.info(`✅ Stored ${entitiesToStore.length} code patterns in memory`)
+// Example page object template (non-executable):
+// import { Page } from '@playwright/test'
+// import { pageActions } from '@utilities/ui/page-actions'
+// import { logger } from '@utilities/reporter/custom-logger'
+//
+// export default class {PageName}Page {
+//   private page: Page
+//   
+//   constructor(page: Page) {
+//     this.page = page
+//   }
+//   
+//   // Locator strings (NOT Playwright Locator objects)
+//   private locators = {
+//     {elementName}: {
+//       primary: '{primaryLocator}',      // e.g., '#firstName'
+//       fallback1: '{fallback1Locator}',  // e.g., '[placeholder="First Name"]'
+//       fallback2: '{fallback2Locator}'   // e.g., 'input[name="firstName"]'
+//     }
+//   }
+//   
+//   // Public methods for test actions
+//   async goto() {
+//     await pageActions.gotoURL(this.page, '{url}')
+//   }
+//   
+//   async fill{ElementName}(value: string) {
+//     await this.fillWithFallback(
+//       this.locators.{elementName}, 
+//       value, 
+//       '{elementName}'
+//     )
+//   }
+//   
+//   async click{ElementName}() {
+//     await this.clickWithFallback(
+//       this.locators.{elementName}, 
+//       '{elementName}'
+//     )
+//   }
+//   
+//   async get{ElementName}Text(): Promise<string> {
+//     return await this.getTextWithFallback(
+//       this.locators.{elementName}, 
+//       '{elementName}'
+//     )
+//   }
+//   
+//   // Self-healing wrapper methods using pageActions
+//   private async fillWithFallback(
+//     locatorSet: { primary: string; fallback1: string; fallback2: string },
+//     value: string,
+//     fieldName: string
+//   ): Promise<void> {
+//     const attemptedLocators: string[] = []
+//     
+//     try {
+//       await pageActions.fill(this.page, locatorSet.primary, value)
+//       return
+//     } catch (primaryError) {
+//       attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//       logger.warn(`Fallback attempt 1 for ${fieldName}: primary locator failed`)
+//       
+//       try {
+//         await pageActions.fill(this.page, locatorSet.fallback1, value)
+//         logger.info(`Fallback1 succeeded for ${fieldName}`)
+//         return
+//       } catch (fallback1Error) {
+//         attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//         logger.warn(`Fallback attempt 2 for ${fieldName}: fallback1 locator failed`)
+//         
+//         try {
+//           await pageActions.fill(this.page, locatorSet.fallback2, value)
+//           logger.info(`Fallback2 succeeded for ${fieldName}`)
+//           return
+//         } catch (fallback2Error) {
+//           attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//           const errorMessage = `All locators failed for ${fieldName}. Attempted:\n${attemptedLocators.join('\n')}`
+//           logger.error(errorMessage)
+//           throw new Error(errorMessage)
+//         }
+//       }
+//     }
+//   }
+//   
+//   private async clickWithFallback(
+//     locatorSet: { primary: string; fallback1: string; fallback2: string },
+//     elementName: string
+//   ): Promise<void> {
+//     const attemptedLocators: string[] = []
+//     
+//     try {
+//       await pageActions.click(this.page, locatorSet.primary)
+//       return
+//     } catch (primaryError) {
+//       attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//       logger.warn(`Fallback attempt 1 for ${elementName}: primary locator failed`)
+//       
+//       try {
+//         await pageActions.click(this.page, locatorSet.fallback1)
+//         logger.info(`Fallback1 succeeded for ${elementName}`)
+//         return
+//       } catch (fallback1Error) {
+//         attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//         logger.warn(`Fallback attempt 2 for ${elementName}: fallback1 locator failed`)
+//         
+//         try {
+//           await pageActions.click(this.page, locatorSet.fallback2)
+//           logger.info(`Fallback2 succeeded for ${elementName}`)
+//           return
+//         } catch (fallback2Error) {
+//           attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//           const errorMessage = `All locators failed for ${elementName}. Attempted:\n${attemptedLocators.join('\n')}`
+//           logger.error(errorMessage)
+//           throw new Error(errorMessage)
+//         }
+//       }
+//     }
+//   }
+//   
+//   private async getTextWithFallback(
+//     locatorSet: { primary: string; fallback1: string; fallback2: string },
+//     elementName: string
+//   ): Promise<string> {
+//     const attemptedLocators: string[] = []
+//     
+//     try {
+//       return await pageActions.getText(this.page, locatorSet.primary)
+//     } catch (primaryError) {
+//       attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//       
+//       try {
+//         return await pageActions.getText(this.page, locatorSet.fallback1)
+//       } catch (fallback1Error) {
+//         attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//         
+//         try {
+//           return await pageActions.getText(this.page, locatorSet.fallback2)
+//         } catch (fallback2Error) {
+//           attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//           const errorMessage = `All locators failed for ${elementName}. Attempted:\n${attemptedLocators.join('\n')}`
+//           logger.error(errorMessage)
+//           throw new Error(errorMessage)
+//         }
+//       }
+//     }
+//   }
+// }
 ```
 
-**Output:** Natural language summary:
-```
-"I stored 3 code patterns in memory: 1 overall code generation pattern (5 files, test.each pattern), 1 self-healing wrapper pattern (elementWithFallback helper), and 1 react-select component pattern."
-```
+**Critical Thinking Checkpoint 3A:**
 
----
+❓ **Challenge:** Why use pageActions wrapper instead of direct Playwright API?
+→ **Analysis:** 
+  - **Consistency:** All page objects use same action patterns across the codebase
+  - **Error handling:** Centralized error enrichment via ErrorHandler in utilities layer
+  - **Timeout management:** Consistent timeout handling via timeout constants
+  - **Logging:** Automatic action logging via custom logger for better debugging
+  - **Maintenance:** Changes to action logic automatically update all page objects
+→ **Mitigation:** Always use pageActions wrapper for standard interactions (fill, click, select, getText, etc.). Only use direct Playwright API for special cases not covered by pageActions (e.g., keyboard.press for specific key combinations, advanced mouse operations, or iframe handling).
 
-### **Step 10: Self-Audit Checkpoint (MANDATORY)**
+**Special Component Handling:**
 
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section "Enforcement Rules" for checkpoint template.
+| Component Type | Interaction Pattern | pageActions Method |
+|----------------|---------------------|-------------------|
+| `react-select` | Click container → type value → press Enter | `pageActions.click()` + `pageActions.fill()` + `keyboard.press('Enter')` |
+| `datepicker` | Use fill() with date string | `pageActions.fill()` |
+| `file-upload` | Use setInputFiles() with file path | `pageActions.uploadFile()` |
+| `checkbox` | Use check()/uncheck() | `pageActions.check()` / `pageActions.uncheck()` |
+| `radio` | Use check() | `pageActions.check()` |
+| `hover-menu` | Use hover() then click() | `pageActions.hover()` + `pageActions.click()` |
 
-**Purpose:** Verify all required MCPs were executed correctly.
+**Critical Thinking Checkpoint 2:**
 
-**When:** ALWAYS as the final step before returning output.
+❓ **Challenge:** Why could self-healing fallback chain fail even with 3 locators?
+→ **Analysis:** All locators reference attributes that changed (redesign), element moved to iframe/shadow DOM, element dynamically loaded after page load
+→ **Mitigation:** Throw enriched error with diagnostic info (all attempted locators, recommendations like "check iframe/shadow DOM"), log detailed trace
 
-**Execution:**
+### Step 4: Register Page Object in Fixture
+
+**Fixture Update Pattern:**
 
 ```typescript
-logger.info('🔍 STEP 10: Self-audit checkpoint')
-
-const missingSteps = []
-
-// Check Step 0A
-if (!executedMemorySearch) {
-  missingSteps.push('mcp_memory_search_nodes (Step 0A)')
-}
-
-// Check Step 0B (mandatory for GATE 3)
-if (!loadedGate2Output) {
-  missingSteps.push('Load GATE 2 output (Step 0B)')
-}
-
-// Check Step 1 (ALWAYS required - no longer conditional)
-if (!executedSequentialThinking) {
-  missingSteps.push('mcp_sequential-th_sequentialthinking (Step 1 - MANDATORY for all POM generation)')
-}
-
-// Check Step 9A
-if (!createdStateFile) {
-  missingSteps.push('create_file for state output (Step 9A)')
-}
-
-// Check Step 9B
-if (!executedMemoryStore) {
-  missingSteps.push('mcp_memory_create_entities (Step 9B)')
-}
-
-// Calculate quality metrics
-const compilationSuccess = !output.compilationResult.hasErrors
-const selfHealingCoverage = output.pageObjects.filter(po => 
-  po.methods.some(m => m.hasFallbacks)
-).length / output.pageObjects.length
-
-const avgMethodsPerPage = output.pageObjects.reduce((sum, po) => 
-  sum + po.methods.length, 0
-) / output.pageObjects.length
+// Example fixture registration (non-executable):
+// import { {PageName}Page } from './pages/{pageName}.page'
+//
+// type CustomFixtures = {
+//   // ... existing pages ...
+//   {pageName}Page: {PageName}Page
+// }
+//
+// export const test = base.extend<CustomFixtures>({
+//   // ... existing registrations ...
+//   {pageName}Page: async ({ page }, use) => {
+//     const {pageName}Page = new {PageName}Page(page)
+//     await use({pageName}Page)
+//   }
+// })
 ```
 
-**Output Format:**
+**Update Strategy:**
+1. Read existing `pageFixture.ts` content
+2. Add import statement at top
+3. Add type definition to `CustomFixtures` interface
+4. Add fixture registration to `test.extend()` object
+5. Preserve existing registrations and formatting
+
+### Step 5: Generate Test Specs
+
+**Pattern A: Single Test (1-3 cases)**
+
+```typescript
+// Example single test pattern (non-executable):
+// import { test } from 'tests/test-objects/gui/pageObjects/pageFixture'
+// import { expect } from '@utilities/reporter/custom-expect'
+//
+// test.describe('{Feature} functionality', () => {
+//   
+//   test('TC_001: {Description}', async ({ {pageName}Page }) => {
+//     
+//     await test.step('Navigate to page', async () => {
+//       await {pageName}Page.goto()
+//     })
+//     
+//     await test.step('Fill form fields', async () => {
+//       await {pageName}Page.fillFirstName('{value}')
+//       await {pageName}Page.fillLastName('{value}')
+//     })
+//     
+//     await test.step('Submit and verify', async () => {
+//       await {pageName}Page.clickSubmit()
+//       await expect({pageName}Page.getSuccessMessage()).toBeVisible()
+//     })
+//   })
+// })
+```
+
+**Pattern B: forEach (4-10 cases)**
+
+```typescript
+// Example forEach pattern (non-executable):
+// import testData from 'tests/test-data/{domain}-{feature}-data.json'
+//
+// test.describe('{Feature} - Data-Driven', () => {
+//   
+//   testData.testCases.forEach((testCase) => {
+//     test(`${testCase.testId}: ${testCase.description}`, async ({ {pageName}Page }) => {
+//       
+//       await test.step('Navigate', async () => {
+//         await {pageName}Page.goto()
+//       })
+//       
+//       await test.step('Fill form', async () => {
+//         await {pageName}Page.fillFirstName(testCase.data.firstName)
+//         await {pageName}Page.fillLastName(testCase.data.lastName)
+//       })
+//       
+//       await test.step('Verify result', async () => {
+//         if (testCase.expected === 'success') {
+//           await expect({pageName}Page.page).toHaveURL(/success/)
+//         } else {
+//           await expect({pageName}Page.getErrorMessage()).toBeVisible()
+//         }
+//       })
+//     })
+//   })
+// })
+```
+
+**Pattern C: test.each (10+ cases)**
+
+```typescript
+// Example test.each pattern (non-executable):
+// import testData from 'tests/test-data/{domain}-{feature}-data.json'
+//
+// test.describe.parallel('{Feature} - Parallel Execution', () => {
+//   
+//   testData.testCases.forEach((testCase) => {
+//     test(`${testCase.testId}`, async ({ {pageName}Page }) => {
+//       // Test implementation (runs in parallel workers)
+//     })
+//   })
+// })
+```
+
+**Critical Thinking Checkpoint 3:**
+
+❓ **Challenge:** Why could generated test spec compile successfully but fail at runtime?
+→ **Analysis:** Page object methods may not exist (typo in method name), data file path wrong (relative vs absolute), fixture not registered correctly
+→ **Mitigation:** Validate method names against generated page object, use absolute imports for data files, verify fixture registration syntax
+
+### Step 6: Validate Compilation
+
+**Validation Process:**
+
+```typescript
+// Example compilation check (non-executable):
+// const errors = get_errors([
+//   'tests/test-objects/gui/pageObjects/pages/{pageName}.page.ts',
+//   'tests/test-objects/gui/pageObjects/pageFixture.ts',
+//   'tests/tests-management/gui/{feature}/{testName}.spec.ts'
+// ])
+//
+// if (errors.length > 0) {
+//   errors.forEach(error => {
+//     logger.error(`Compilation error in ${error.file} line ${error.line}: ${error.message}`)
+//   })
+//   throw new Error(`Compilation failed with ${errors.length} errors`)
+// }
+```
+
+**Common Error Types:**
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| "Cannot find module" | Import path wrong | Use absolute imports with `tests/` prefix |
+| "Type 'X' is not assignable to 'Y'" | Fixture type mismatch | Update `CustomFixtures` interface |
+| "Property 'X' does not exist" | Method name typo | Verify method names match page object |
+| "Duplicate identifier" | Fixture already registered | Check existing registrations before adding |
+
+### Step 7A: Write State File
+
+Write structured output to `.state/{domain}-{feature}-gate3-output.json`:
+
+```typescript
+// Example state file creation (non-executable):
+// const gateState = {
+//   gate: 3,
+//   agent: "POMGenerator",
+//   status: compilationErrors === 0 ? "SUCCESS" : "PARTIAL",
+//   metadata: {
+//     domain: metadata.domain,
+//     feature: metadata.feature,
+//     url: input.url
+//   },
+//   output: {
+//     generatedFiles: [
+//       {
+//         filePath: "tests/test-objects/gui/pageObjects/pages/{feature}.page.ts",
+//         fileType: "page-object",
+//         linesOfCode: <COUNT>,
+//         methods: [<METHOD_NAMES>]
+//       },
+//       {
+//         filePath: "tests/tests-management/gui/{feature}/{testName}.spec.ts",
+//         fileType: "test-spec",
+//         linesOfCode: <COUNT>,
+//         pattern: <PATTERN>
+//       },
+//       {
+//         filePath: "tests/test-objects/gui/pageObjects/pageFixture.ts",
+//         fileType: "fixture",
+//         linesOfCode: <COUNT>,
+//         updates: ["Added {PageName}Page registration"]
+//       }
+//     ],
+//     compilationErrors: <COUNT>,
+//     selfHealingEnabled: true,
+//     componentReuse: <COUNT>
+//   },
+//   validation: {
+//     score: compilationErrors === 0 ? 100 : 50,
+//     issues: compilationErrors === 0 ? [] : ["{count} compilation errors"],
+//     passed: compilationErrors === 0
+//   },
+//   executionTrace: {
+//     startTime: "<START_TIME_ISO8601>",
+//     endTime: "<END_TIME_ISO8601>",
+//     executedSteps: ["Step0A", "Step0B", "Step1", "Step2", "Step3", "Step4", "Step5", "Step6", "Step7A"],
+//     skippedSteps: [],
+//     failedSteps: [],
+//     checkpointCompleted: false  // Will be true after Step 8
+//   }
+// }
+//
+// create_file(
+//   `.state/${metadata.domain}-${metadata.feature}-gate3-output.json`,
+//   safeStringify(gateState)
+// )
+```
+
+**Important:** Use `safeStringify` from `src/utilities/common/json-utils.ts` (NOT `JSON.stringify`).
+
+### Step 7B: Store Learnings in Memory
+
+Store code generation patterns for future runs:
+
+```typescript
+// Example memory storage (non-executable):
+// mcp_memory_create_entities({
+//   entities: [
+//     {
+//       name: "{domain}-{feature}-CodePattern",
+//       entityType: "CodePattern",
+//       observations: [
+//         "Files generated: {count}",
+//         "Page objects: {count}",
+//         "Test specs: {count}",
+//         "Test pattern: {pattern}",
+//         "Framework: playwright",
+//         "Language: typescript",
+//         "Self-healing enabled: true",
+//         "Component reuse: {count}",
+//         "Compilation errors: 0",
+//         "Methods: {methodList}",
+//         "Special components: {componentTypes}",
+//         "Captured at: Step 7B completion",
+//         "Timestamp: <TIMESTAMP_ISO8601>"
+//       ]
+//     }
+//   ]
+// })
+//
+// // Verification
+// const verification = mcp_memory_open_nodes({
+//   names: ["{domain}-{feature}-CodePattern"]
+// })
+//
+// if (verification.entities.length === 0) {
+//   logger.warn("Memory storage verification failed - retrying once")
+//   // Retry storage logic
+// }
+```
+
+### Step 8: Output Checkpoint
+
+Generate comprehensive self-audit:
+
+**Checkpoint Template:**
 
 ```markdown
-**✅ CHECKPOINT: POM Generation Complete**
+**CHECKPOINT: POM Generator Agent - GATE 3 Complete**
 
-Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried page object patterns for {domain} {feature} (Step 0A)
-✅ Load GATE 2 output - Loaded {elementCount} element mappings from .state/{requestId}-gate2-output.json (Step 0B)
-✅ mcp_sequential-th_sequentialthinking - Planned approach (4 thoughts - MANDATORY for all POM generation) (Step 1)
-✅ Main execution - Generated {fileCount} files (Steps 2-8)
-✅ create_file - Wrote state file .state/{requestId}-gate3-output.json (Step 9A)
-✅ mcp_memory_create_entities - Stored {patternCount} patterns (Step 9B)
+Required MCPs:
+✅ mcp_memory_search_nodes - Queried code patterns for {domain}
+✅ mcp_sequential-th_sequentialthinking - Planned code generation (5 thoughts)
+✅ mcp_memory_create_entities - Stored CodePattern entity
+✅ mcp_memory_open_nodes - Verified storage succeeded
 
-MISSING STEPS: ${missingSteps.length > 0 ? missingSteps.join(', ') : 'None'}
+Generated Files:
+✅ Page Object: tests/test-objects/gui/pageObjects/pages/{feature}.page.ts ({linesOfCode} lines)
+✅ Test Spec: tests/tests-management/gui/{feature}/{testName}.spec.ts ({linesOfCode} lines, {pattern} pattern)
+✅ Fixture Update: tests/test-objects/gui/pageObjects/pageFixture.ts (added {PageName}Page registration)
 
-QUALITY METRICS:
-- Files generated: {fileCount} ({pageObjectCount} page objects, {testSpecCount} test specs)
-- Compilation status: ${compilationSuccess ? 'SUCCESS' : 'FAILED'}
-- Self-healing coverage: ${(selfHealingCoverage * 100).toFixed(0)}%
-- Average methods per page: ${avgMethodsPerPage.toFixed(1)}
-- Special components handled: {specialComponentCount}
+Code Quality:
+✅ Compilation: {compilationErrors} errors (target: 0)
+✅ Self-Healing: {selfHealingEnabled} (fallback chains: {count})
+✅ Test Pattern: {pattern} (appropriate for {totalCases} cases)
+✅ Component Reuse: {componentReuse} components
 
-ACTION: ${missingSteps.length > 0 ? 'ERROR - Going back to complete missing steps' : 'SUCCESS - All MCPs completed, proceeding to return output'}
+Validation Score: {score}/100
+Issues: {issuesList OR "NONE"}
+
+MISSING STEPS: NONE
+
+ACTION: PROCEEDING TO GATE 4 (Test Execution)
 ```
 
-**Example Output:**
+**Generated Page Object Example (login.page.ts):**
 
-```markdown
-**✅ CHECKPOINT: POM Generation Complete**
-
-Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried page object patterns for demoqa_com student_registration (Step 0A)
-✅ Load GATE 2 output - Loaded 8 element mappings from .state/abc-123-gate2-output.json (Step 0B)
-✅ mcp_sequential-th_sequentialthinking - Planned approach (4 thoughts - MANDATORY)
-✅ Main execution - Generated 5 files
-✅ mcp_memory_create_entities - Stored 3 patterns (1 code + 1 wrapper + 1 component)
-
-MISSING STEPS: None
-
-QUALITY METRICS:
-- Files generated: 5 (2 page objects, 1 test spec, 1 fixture update, 1 data file)
-- Compilation status: SUCCESS
-- Self-healing coverage: 100%
-- Average methods per page: 6.5
-- Special components handled: 2 (react-select, datepicker)
-
-ACTION: SUCCESS - All MCPs completed, proceeding to return output
+```typescript
+// Example generated page object (non-executable):
+// import { Page } from '@playwright/test'
+// import { pageActions } from '@utilities/ui/page-actions'
+// import { logger } from '@utilities/reporter/custom-logger'
+//
+// export default class LoginPage {
+//   private page: Page
+//   
+//   constructor(page: Page) {
+//     this.page = page
+//   }
+//   
+//   // Locators stored as plain strings
+//   private locators = {
+//     usernameInput: {
+//       primary: '#username',
+//       fallback1: '[placeholder="Username"]',
+//       fallback2: 'input[name="username"]'
+//     },
+//     passwordInput: {
+//       primary: '#password',
+//       fallback1: '[placeholder="Password"]',
+//       fallback2: 'input[type="password"]'
+//     },
+//     loginButton: {
+//       primary: '#login',
+//       fallback1: 'button[name="Login"]',
+//       fallback2: 'text=Login'
+//     }
+//   }
+//   
+//   async goto() {
+//     await pageActions.gotoURL(this.page, 'https://example.com/login')
+//   }
+//   
+//   async fillUsername(value: string) {
+//     await this.fillWithFallback(this.locators.usernameInput, value, 'username')
+//   }
+//   
+//   async fillPassword(value: string) {
+//     await this.fillWithFallback(this.locators.passwordInput, value, 'password')
+//   }
+//   
+//   async clickLoginButton() {
+//     await this.clickWithFallback(this.locators.loginButton, 'loginButton')
+//   }
+//   
+//   async getDashboardUrl(): Promise<string> {
+//     return this.page.url()
+//   }
+//   
+//   // Self-healing wrapper using pageActions
+//   private async fillWithFallback(
+//     locatorSet: { primary: string; fallback1: string; fallback2: string },
+//     value: string,
+//     fieldName: string
+//   ): Promise<void> {
+//     const attemptedLocators: string[] = []
+//     
+//     try {
+//       await pageActions.fill(this.page, locatorSet.primary, value)
+//       return
+//     } catch (primaryError) {
+//       attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//       logger.warn(`Fallback attempt 1 for ${fieldName}: primary locator failed`)
+//       
+//       try {
+//         await pageActions.fill(this.page, locatorSet.fallback1, value)
+//         logger.info(`Fallback1 succeeded for ${fieldName}`)
+//         return
+//       } catch (fallback1Error) {
+//         attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//         logger.warn(`Fallback attempt 2 for ${fieldName}: fallback1 locator failed`)
+//         
+//         try {
+//           await pageActions.fill(this.page, locatorSet.fallback2, value)
+//           logger.info(`Fallback2 succeeded for ${fieldName}`)
+//           return
+//         } catch (fallback2Error) {
+//           attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//           const errorMessage = `All locators failed for ${fieldName}. Attempted:\n${attemptedLocators.join('\n')}`
+//           logger.error(errorMessage)
+//           throw new Error(errorMessage)
+//         }
+//       }
+//     }
+//   }
+//   
+//   private async clickWithFallback(
+//     locatorSet: { primary: string; fallback1: string; fallback2: string },
+//     elementName: string
+//   ): Promise<void> {
+//     const attemptedLocators: string[] = []
+//     
+//     try {
+//       await pageActions.click(this.page, locatorSet.primary)
+//       return
+//     } catch (primaryError) {
+//       attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//       logger.warn(`Fallback attempt 1 for ${elementName}: primary locator failed`)
+//       
+//       try {
+//         await pageActions.click(this.page, locatorSet.fallback1)
+//         logger.info(`Fallback1 succeeded for ${elementName}`)
+//         return
+//       } catch (fallback1Error) {
+//         attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//         logger.warn(`Fallback attempt 2 for ${elementName}: fallback1 locator failed`)
+//         
+//         try {
+//           await pageActions.click(this.page, locatorSet.fallback2)
+//           logger.info(`Fallback2 succeeded for ${elementName}`)
+//           return
+//         } catch (fallback2Error) {
+//           attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//           const errorMessage = `All locators failed for ${elementName}. Attempted:\n${attemptedLocators.join('\n')}`
+//           logger.error(errorMessage)
+//           throw new Error(errorMessage)
+//         }
+//       }
+//     }
+//   }
+// }
 ```
 
 ---
 
-## 🎯 Complete Execution Flow Summary
+## Environment Configuration
+
+### Purpose
+
+Support multi-environment testing by using environment-specific configuration from `environments/` directory.
+
+📖 **Reference:** See `playwright.config.ts` for environment loading logic.
+
+### Environment Files Structure
 
 ```
-User Request Received
-    ↓
-[STEP 0] Query Memory (mcp_memory_search_nodes)
-    - Search for page object patterns
-    - Search for self-healing wrapper patterns
-    - Search for component code patterns
-    - Apply found patterns to strategy
-    ↓
-[STEP 1] Plan Approach (mcp_sequential-th_sequentialthinking - MANDATORY)
-    - Thought 1: Analyze input complexity and scope
-    - Thought 2: Plan code structure and test pattern
-    - Thought 3: Plan self-healing and error handling
-    - Thought 4: Plan validation approach
-    ↓
-[STEP 2] Analyze input and select test pattern
-    ↓
-[STEP 3] Generate page object classes
-    ↓
-[STEP 4] Register page objects in fixture
-    ↓
-[STEP 5] Generate test specs
-    ↓
-[STEP 6] Handle special component patterns
-    ↓
-[STEP 7] Validate compilation (get_errors)
-    ↓
-[STEP 8] Rollback on failure (if errors)
-    ↓
-[STEP 9] Store Patterns (mcp_memory_create_entities)
-    - Store code generation pattern
-    - Store self-healing wrapper pattern
-    - Store special component patterns
-    ↓
-[STEP 10] Self-Audit Checkpoint
-    - Verify all MCPs executed
-    - Calculate quality metrics
-    - Output checkpoint with status
-    ↓
-Return POMGeneratorOutput (JSON format)
+environments/
+├── dev.env       (Development - default)
+├── staging.env   (Staging)
+├── sit.env       (System Integration Test)
+├── prod.env      (Production)
 ```
 
+### Environment Variables
+
+```typescript
+// Example environment variables (non-executable):
+// PROJECT_NAME = "QA Automation Suite"
+// BASE_URL = "https://dev.example.com"
+// API_BASE_URL = "https://api-dev.example.com"
+// API_AUTH_TOKEN = "<TOKEN>"
+```
+
+### Usage in Generated Page Objects
+
+**Pattern 1: Environment-Aware Navigation**
+
+```typescript
+// Example page object with environment-aware URL (non-executable):
+// import { Page } from '@playwright/test'
+// import { pageActions } from '@utilities/ui/page-actions'
+// import { logger } from '@utilities/reporter/custom-logger'
+//
+// export default class LoginPage {
+//   private page: Page
+//   private baseURL: string
+//   
+//   constructor(page: Page) {
+//     this.page = page
+//     this.baseURL = process.env.BASE_URL || 'http://localhost:3000'
+//   }
+//   
+//   async goto() {
+//     const loginUrl = `${this.baseURL}/login`
+//     logger.info(`Navigating to login page: ${loginUrl}`)
+//     await pageActions.gotoURL(this.page, loginUrl)
+//   }
+//   
+//   async gotoDashboard() {
+//     await pageActions.gotoURL(this.page, `${this.baseURL}/dashboard`)
+//   }
+// }
+```
+
+**Pattern 2: Environment-Specific Test Data**
+
+```typescript
+// Example test spec with environment-specific data (non-executable):
+// import { test } from 'tests/test-objects/gui/pageObjects/pageFixture'
+// import { expect } from '@utilities/reporter/custom-expect'
+//
+// const environment = process.env.NODE_ENV || 'dev'
+// const baseURL = process.env.BASE_URL
+//
+// test.describe(`Login functionality - ${environment}`, () => {
+//   
+//   test.beforeEach(async ({ loginPage }) => {
+//     logger.info(`Running on environment: ${environment}`)
+//     logger.info(`Base URL: ${baseURL}`)
+//     await loginPage.goto()
+//   })
+//   
+//   test('Valid login redirects to dashboard', async ({ loginPage }) => {
+//     // Test implementation
+//     await expect(loginPage.page).toHaveURL(`${baseURL}/dashboard`)
+//   })
+// })
+```
+
+**Pattern 3: Environment-Specific Credentials**
+
+```typescript
+// Example credentials loading from environment (non-executable):
+// import credentials from 'tests/test-data/user-data/credentials.json'
+//
+// test('Admin login', async ({ loginPage }) => {
+//   const env = process.env.NODE_ENV || 'dev'
+//   const adminCreds = credentials[env].admin
+//   
+//   await loginPage.fillUsername(adminCreds.username)
+//   await loginPage.fillPassword(adminCreds.password)
+//   await loginPage.clickLoginButton()
+//   
+//   // Verify environment-specific success page
+//   await expect(loginPage.page).toHaveURL(`${process.env.BASE_URL}/dashboard`)
+// })
+```
+
+### Running Tests with Specific Environment
+
+**Command Line:**
+```bash
+# Run with dev environment (default)
+npx playwright test
+
+# Run with staging environment
+NODE_ENV=staging npx playwright test
+
+# Run with production environment
+NODE_ENV=prod npx playwright test
+```
+
+### Code Generation Considerations
+
+**When to Add Environment Configuration:**
+
+1. **URL Construction:** Always use `process.env.BASE_URL` for dynamic URLs
+2. **API Integration:** Use `process.env.API_BASE_URL` for API endpoint tests
+3. **Multi-Env Tests:** Add environment checks in test specs
+4. **Credentials:** Reference environment-specific credentials from JSON
+
+**Code Generation Pattern:**
+
+```typescript
+// Example decision logic (non-executable):
+// shouldAddEnvironmentConfig(testCases, url) {
+//   // Always add if URL is dynamic or multi-environment
+//   const isDynamicUrl = url.includes('dev') || url.includes('staging') || url.includes('prod')
+//   
+//   // Add if test requires environment-specific behavior
+//   const hasEnvDependency = testCases.some(tc => 
+//     tc.description.includes('environment') || 
+//     tc.description.includes('staging') ||
+//     tc.description.includes('production')
+//   )
+//   
+//   return isDynamicUrl || hasEnvDependency
+// }
+//
+// generatePageObjectWithEnv(className, url) {
+//   const template = `
+// export default class ${className} {
+//   private page: Page
+//   private baseURL: string
+//   
+//   constructor(page: Page) {
+//     this.page = page
+//     this.baseURL = process.env.BASE_URL || '${extractBaseUrl(url)}'
+//   }
+//   
+//   async goto() {
+//     await pageActions.gotoURL(this.page, \`\${this.baseURL}${extractPath(url)}\`)
+//   }
+// }
+//   `
+//   return template
+// }
+```
+
+### Critical Thinking Checkpoint
+
+**❓ Challenge:** Why use environment variables instead of hardcoded URLs?
+- → **Analysis:** Tests must run across dev/staging/prod without code changes, credentials differ per environment, URLs change during deployment
+- → **Mitigation:** Always use `process.env.BASE_URL`, load credentials from environment-specific JSON, log current environment in test output
+
+**❓ Challenge:** What if environment variable is missing?
+- → **Analysis:** Tests fail with unclear errors, page objects break during navigation
+- → **Mitigation:** Provide fallback values (`process.env.BASE_URL || 'http://localhost:3000'`), log environment configuration at test start, validate required variables in beforeAll hook
+
 ---
 
-## ✅ Validation Rules
+## Validation Rules
 
-1. **Compilation**: All generated code must compile without errors
-2. **Fixture Registration**: Page objects must be added to fixture without duplicates
-3. **Self-Healing**: All page methods must have fallback locators
-4. **JSDoc Comments**: All public methods must have documentation
-5. **Test Pattern**: Must match data strategy (single/forEach/test.each)
-6. **Import Paths**: Must use @ aliases correctly
-
----
-
-## 🔧 Error Handling
-
-### Error Classification
-
-| Error Type | Cause | Recovery |
-|------------|-------|----------|
-| **Compilation Error** | Invalid TypeScript | Rollback + log details |
-| **Fixture Conflict** | Duplicate registration | Skip registration |
-| **File Write Error** | Permission/path issue | Retry once, then fail |
-| **Invalid Template** | Missing element mapping | Log warning, use generic template |
+| Rule | Criteria | Threshold |
+|------|----------|-----------|
+| Schema Validation | Output matches POMGeneratorOutput contract | 100% |
+| File Generation | All 3 files created (page object, test spec, fixture update) | 100% |
+| Compilation Success | TypeScript compilation errors | 0 |
+| Self-Healing Coverage | All elements have fallback chains (primary + 1 minimum) | 100% |
+| Test Pattern Appropriateness | Pattern matches data strategy (single/forEach/test.each) | 100% |
+| Method Coverage | All test steps have corresponding page object methods | 100% |
+| Utilities Usage | Generated page objects import and use pageActions | 100% |
+| Semantic Validation | Generated code matches test logic and element mappings | Level 3+ |
 
 ---
 
-## 📚 Examples
-
-See generated code examples in Step 2 (Page Objects) and Step 4 (Test Specs)
-
----
-
-## 🚫 Critical Constraints
+## Constraints
 
 **NEVER:**
-- ❌ Skip input validation
-- ❌ Proceed without querying memory first (Step 0)
-- ❌ Use sequential thinking for trivial single-step operations
-- ❌ Store sensitive data (passwords, API keys) in memory
-- ❌ Generate code without validation
-- ❌ Skip self-audit checkpoint
-- ❌ Use incomplete MCP parameters
-- ❌ Output TypeScript code in responses (documentation only)
-- ❌ Generate code without fallback locators (agent-specific)
-- ❌ Skip compilation validation (agent-specific)
-- ❌ Register duplicate fixtures (agent-specific)
-- ❌ Use hard-coded test data values (agent-specific)
+- Generate executable TypeScript in agent responses (only in created files)
+- Use direct Playwright API in page objects (use pageActions wrapper instead)
+- Skip compilation validation (must run `get_errors`)
+- Use hardcoded values in page objects (all data should come from test parameters)
+- Forget fallback chains (every element needs primary + 2 fallbacks)
+- Mix test patterns (single test file should use ONE pattern)
+- Use relative imports (always use absolute: `tests/...`)
+- Skip fixture registration (page objects won't be accessible in tests)
+- Overwrite existing fixture registrations (append only)
+- Store Playwright Locator objects (use plain strings)
+- Generate page objects without self-healing wrappers
+- Skip memory storage verification
+- Hardcode URLs in page objects (use process.env.BASE_URL)
+- Skip environment variable fallbacks (always provide defaults)
+- Duplicate component logic (check for reusable components first)
+- Regenerate existing components (import and compose instead)
 
 **ALWAYS:**
-- ✅ Query memory before main execution (Step 0)
-- ✅ Use sequential thinking for complex analysis (3+ steps)
-- ✅ Validate all inputs against schema
-- ✅ Store learnings in memory after completion
-- ✅ Output self-audit checkpoint with quality metrics
-- ✅ Use complete MCP parameters (all required fields)
-- ✅ Return JSON matching output contract
-- ✅ Natural language descriptions in responses
-- ✅ Use self-healing wrapper methods in generated code (agent-specific)
-- ✅ Validate TypeScript compilation with get_errors() (agent-specific)
-- ✅ Include retry configuration in tests (agent-specific)
-- ✅ Generate JSDoc comments for all public methods (agent-specific)
+- Import and use pageActions from '@utilities/ui/page-actions'
+- Import logger from '@utilities/reporter/custom-logger'
+- Store locators as plain strings, not Playwright Locator objects
+- Use pageActions.fill(), pageActions.click(), pageActions.getText(), etc.
+- Run sequential thinking (5 thoughts minimum)
+- Query memory for existing code patterns (Step 0B)
+- Load previous gate outputs (Steps 0C)
+- Detect reusable components before code generation (Step 2)
+- Import and compose existing components (appHeaders, appNavigation, dialogPrivacySettings)
+- Log component detection decisions for transparency
+- Validate compilation after file generation (Step 6)
+- Use test.step() to break down test actions
+- Include error enrichment in fallback chains (log attempted locators)
+- Register page object in fixture before generating test spec
+- Store CodePattern entity with verification (Step 7B)
+- Output comprehensive checkpoint (Step 8)
+- Use safeStringify for JSON serialization
+- Include descriptive comments in generated code
+- Handle special components with correct interaction patterns
+- Use environment variables for URLs (process.env.BASE_URL)
+- Provide fallback values for environment variables
+- Log current environment at test start (process.env.NODE_ENV)
 
 ---
 
-## ⚠️ MCP ENFORCEMENT RULES
+## Error Handling
 
-**These are HARD REQUIREMENTS - not suggestions:**
+| Error Type | Action | Max Retries | Escalation |
+|------------|--------|-------------|------------|
+| Invalid input structure | Throw error immediately, list missing fields | 0 | Orchestration |
+| State file not found | Throw error with clear path and remediation | 0 | Orchestration |
+| Compilation errors | Log all errors, attempt quick fixes (imports, types), re-validate | 1 | Return PARTIAL status if still failing |
+| Memory storage failed | Retry once, log warning if retry fails, continue execution | 1 | None (non-critical) |
+| File write failed | Retry with exponential backoff | 3 | Throw error if all retries fail |
 
-### 1. 🛑 MEMORY-FIRST RULE
-**Before ANY main execution, you MUST call `mcp_memory_search_nodes` to query existing patterns.**
+**Quick Fix Strategies for Compilation Errors:**
 
-```typescript
-// MANDATORY: Step 0 for all agents
-const patterns = await mcp_memory_search_nodes({
-  query: "{appropriate pattern query}"
-})
+| Error Pattern | Quick Fix |
+|---------------|-----------|
+| "Cannot find module 'X'" | Check import path, convert to absolute import |
+| "Type 'X' is not assignable" | Check CustomFixtures interface, verify page object type |
+| "Property 'X' does not exist" | Verify method exists in page object, check typos |
+| "Duplicate identifier" | Check existing fixture registrations, rename if collision |
+
+---
+
+## Example Exchange
+
+**Input (.agent file):**
+
+```json
+{
+  "agentName": "POMAgent",
+  "timestamp": "2025-01-07T10:30:00Z",
+  "input": {
+    "metadata": {
+      "domain": "example_com",
+      "feature": "login",
+      "url": "https://example.com/login",
+      "framework": "playwright",
+      "language": "typescript"
+    },
+    "testCases": [
+      {
+        "testId": "TC_001",
+        "description": "Valid admin login",
+        "testSteps": [
+          { "action": "fill", "target": "username", "data": "admin" },
+          { "action": "fill", "target": "password", "data": "admin123" },
+          { "action": "click", "target": "loginButton" }
+        ],
+        "expectedResult": {
+          "status": "pass",
+          "assertions": [{ "type": "url", "value": "/dashboard" }]
+        }
+      }
+    ],
+    "elementMappings": [
+      {
+        "logicalName": "usernameInput",
+        "testStep": "fill username",
+        "locators": {
+          "primary": { "type": "id", "value": "username", "confidenceScore": 0.95 },
+          "fallback1": { "type": "placeholder", "value": "Username", "confidenceScore": 0.85 },
+          "fallback2": { "type": "css", "value": "input[name='username']", "confidenceScore": 0.70 }
+        },
+        "componentType": "standard",
+        "interactionPattern": "fill"
+      },
+      {
+        "logicalName": "passwordInput",
+        "testStep": "fill password",
+        "locators": {
+          "primary": { "type": "id", "value": "password", "confidenceScore": 0.95 },
+          "fallback1": { "type": "placeholder", "value": "Password", "confidenceScore": 0.85 },
+          "fallback2": { "type": "css", "value": "input[type='password']", "confidenceScore": 0.80 }
+        },
+        "componentType": "standard",
+        "interactionPattern": "fill"
+      },
+      {
+        "logicalName": "loginButton",
+        "testStep": "click login button",
+        "locators": {
+          "primary": { "type": "id", "value": "login", "confidenceScore": 0.95 },
+          "fallback1": { "type": "role", "value": "button[name='Login']", "confidenceScore": 0.90 },
+          "fallback2": { "type": "text", "value": "Login", "confidenceScore": 0.75 }
+        },
+        "componentType": "standard",
+        "interactionPattern": "click"
+      }
+    ],
+    "dataStrategy": {
+      "type": "single",
+      "totalCases": 1
+    }
+  }
+}
 ```
 
-**Penalty for violation:** Agent execution is incomplete. You MUST restart with memory query.
+**Output (state file .state/example_com-login-gate3-output.json):**
 
-### 2. 🛑 PLANNING RULE
-**Before complex operations (3+ steps), you MUST use `mcp_sequential-th_sequentialthinking` to plan approach.**
-
-```typescript
-// MANDATORY: Before complex execution
-await mcp_sequential-th_sequentialthinking({
-  thought: "Detailed analysis of what needs to be done and how",
-  thoughtNumber: 1,
-  totalThoughts: 3,  // Minimum 3 thoughts required
-  nextThoughtNeeded: true
-})
+```json
+{
+  "gate": 3,
+  "agent": "POMGenerator",
+  "status": "SUCCESS",
+  "metadata": {
+    "domain": "example_com",
+    "feature": "login",
+    "url": "https://example.com/login"
+  },
+  "output": {
+    "generatedFiles": [
+      {
+        "filePath": "tests/test-objects/gui/pageObjects/pages/login.page.ts",
+        "fileType": "page-object",
+        "linesOfCode": 145,
+        "methods": ["goto", "fillUsername", "fillPassword", "clickLoginButton", "getDashboardUrl"]
+      },
+      {
+        "filePath": "tests/tests-management/gui/login/validLogin.spec.ts",
+        "fileType": "test-spec",
+        "linesOfCode": 32,
+        "pattern": "single"
+      },
+      {
+        "filePath": "tests/test-objects/gui/pageObjects/pageFixture.ts",
+        "fileType": "fixture",
+        "linesOfCode": 187,
+        "updates": ["Added LoginPage registration"]
+      }
+    ],
+    "compilationErrors": 0,
+    "selfHealingEnabled": true,
+    "componentReuse": 0
+  },
+  "validation": {
+    "score": 100,
+    "issues": [],
+    "passed": true
+  },
+  "executionTrace": {
+    "startTime": "2025-01-07T10:30:05Z",
+    "endTime": "2025-01-07T10:30:47Z",
+    "executedSteps": ["Step0A", "Step0B", "Step0C", "Step0D", "Step0E", "Step1", "Step2", "Step3", "Step4", "Step5", "Step6", "Step7A", "Step7B", "Step8"],
+    "skippedSteps": [],
+    "failedSteps": [],
+    "checkpointCompleted": true
+  }
+}
 ```
 
-**Penalty for violation:** Decision-making lacks transparency and auditability.
-
-### 3. 🛑 LEARNING RULE
-**After EVERY successful completion or learning, you MUST store patterns in memory.**
-
-```typescript
-// MANDATORY: After completion
-await mcp_memory_create_entities({
-  entities: [/* all patterns discovered */]
-})
-```
-
-**Penalty for violation:** Knowledge is lost, future runs cannot benefit from learnings.
-
-### 4. 🛑 CHECKPOINT RULE
-**After each major step, you MUST output a self-audit checklist showing completed MCPs.**
+**Checkpoint Output (console/markdown):**
 
 ```markdown
-**✅ CHECKPOINT: {Phase Name}**
+**CHECKPOINT: POM Generator Agent - GATE 3 Complete**
 
-Required MCPs for this phase:
-✅ mcp_memory_search_nodes - Queried {pattern type}
-✅ mcp_sequential-th_sequentialthinking - Planned approach (3 thoughts)
-✅ {other required tools} - {status}
+Required MCPs:
+✅ mcp_memory_search_nodes - Queried code patterns for example_com
+✅ mcp_sequential-th_sequentialthinking - Planned code generation (5 thoughts)
+✅ mcp_memory_create_entities - Stored CodePattern entity
+✅ mcp_memory_open_nodes - Verified storage succeeded
 
-MISSING STEPS: {list any incomplete items}
+Generated Files:
+✅ Page Object: tests/test-objects/gui/pageObjects/pages/login.page.ts (145 lines)
+✅ Test Spec: tests/tests-management/gui/login/validLogin.spec.ts (32 lines, single pattern)
+✅ Fixture Update: tests/test-objects/gui/pageObjects/pageFixture.ts (added LoginPage registration)
 
-ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding to next phase"}
+Code Quality:
+✅ Compilation: 0 errors (target: 0)
+✅ Self-Healing: true (fallback chains: 3 elements)
+✅ Test Pattern: single (appropriate for 1 case)
+✅ Component Reuse: 0 components
+
+Validation Score: 100/100
+Issues: NONE
+
+MISSING STEPS: NONE
+
+ACTION: PROCEEDING TO GATE 4 (Test Execution)
 ```
-
-**Penalty for violation:** Execution flow is not auditable and may have skipped steps.
-
-### 5. 🛑 PARAMETER COMPLETENESS RULE
-**All MCP tool calls MUST include ALL required parameters with meaningful values.**
-
-**Penalty for violation:** Tool call will fail or produce incomplete results.
-
-**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
-
----
-
-## 🔗 Dependencies
-
-### What POM Generator Receives:
-
-1. **testCases** - From Test Designer
-2. **elementMappings** - From DOM Agent (locators)
-3. **dataStrategy** - Data file path and pattern
-4. **metadata** - Domain/feature names
-
-### What POM Generator Provides:
-
-1. **Page Objects** - Executable .ts files with methods
-2. **Test Specs** - Test files using page objects
-3. **Updated Fixtures** - Registered page objects
-4. **Compilation Status** - Pass/fail with errors
-
----
-
-**End of POM Generator Agent Instructions - Version 2.0**
-
----
-
-## 📖 QUICK REFERENCE: MCP Parameter Summary
-
-| MCP Tool | When | Required Parameters |
-|----------|------|---------------------|
-| `mcp_memory_search_nodes` | Step 0 (always) | `query` (string) |
-| `mcp_sequential-th_sequentialthinking` | Step 0.5 (if >= 3 page objects) | `thought`, `thoughtNumber`, `totalThoughts`, `nextThoughtNeeded` |
-| `mcp_memory_create_entities` | Step 8 (always) | `entities[]` with `name`, `entityType`, `observations[]` |
-
-**For complete details:** See `mcp_integration_guide.instructions.md`
-
