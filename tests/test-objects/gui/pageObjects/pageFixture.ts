@@ -7,7 +7,6 @@ import DocumentUploadPage from "@pageobjects/pages/documentUpload.page";
 import DocumentSearchPage from "@pageobjects/pages/documentSearch.page";
 import { setPage, createPageObject } from '@utilities/ui/page-factory';
 import UserGroupPage from '@pageobjects/pages/userGroup.page';
-import { AutomationPracticeFormPage } from '@pageobjects/pages/automationPracticeForm.page';
 
 
 /**
@@ -27,7 +26,6 @@ export type PageObjects = {
   documentUploadPage: DocumentUploadPage;
   documentSearchPage: DocumentSearchPage;
   userGroupPage: UserGroupPage;
-  automationPracticeFormPage: AutomationPracticeFormPage;
 };
 
 // Extend the baseTest from the test framework to include page objects.
@@ -43,7 +41,6 @@ export const test = baseTest.extend<PageObjects>({
   documentUploadPage: createPageObject(DocumentUploadPage),
   documentSearchPage: createPageObject(DocumentSearchPage),
   userGroupPage: createPageObject(UserGroupPage),
-  automationPracticeFormPage: createPageObject(AutomationPracticeFormPage),
 });
 
 export { expect, Page, Locator, Response } from "@playwright/test";
