@@ -247,9 +247,9 @@ Query knowledge base for existing healing patterns:
 
 ### Step 1: Sequential Thinking for Root Cause Analysis (MANDATORY)
 
-**When:** ALWAYS for test healing (5 thoughts minimum)
+**When:** ALWAYS for test healing (7 thoughts minimum - increased to accommodate critical thinking)
 
-**Purpose:** Systematic root cause analysis through multi-factor reasoning
+**Purpose:** Systematic root cause analysis WITH INTEGRATED critical thinking about error symptoms and healing strategy reliability.
 
 **Check Attempt Limit First:**
 
@@ -258,45 +258,89 @@ Before beginning analysis, verify healing attempt count:
 - If `healingAttemptCount === maxHealingAttempts`: Log warning about final attempt
 - If `healingAttemptCount < maxHealingAttempts`: Proceed with analysis
 
-**Thought Pattern:**
+**CRITICAL: Integrate Critical Thinking INTO Sequential Thinking**
 
-1. **Thought 1: Analyze error symptoms and attempt status**
-   - "Healing attempt {healingAttemptCount}/{maxHealingAttempts}. Test failed with {errorType}: {errorMessage}. Failed step: {step}. Locator: {locator}. Analyzing symptoms..."
-   - IF healingAttemptCount > 1: "Previous attempt(s) failed with strategies: {list}. Will analyze what went wrong and try different approach."
-   
-2. **Thought 2: Enumerate possible causes (filtered by previous learnings)**
-   - "Possible causes: 1) Locator incorrect (ID changed), 2) Timing issue (element not loaded), 3) Element state (disabled/hidden), 4) Strict mode (multiple matches), 5) Network delay (API call). Will investigate each."
-   - IF previous attempts exist: "Eliminating causes already ruled out: {previousHypotheses}. Focusing on unexplored hypotheses."
-   
-3. **Thought 3: Investigate most likely cause (avoid previous failures)**
-   - "Hypothesis: {cause}. Evidence: {indicators}. Will {verification_action}."
-   - IF previous strategies failed: "Previous healing attempts tried {failedStrategies} without success. Root cause might be {alternative_hypothesis}."
-   
-4. **Thought 4: Select healing strategy (learn from mistakes)**
-   - "Root cause identified: {cause}. Healing strategy: {strategy}. Will {actions}."
-   - IF healingAttemptCount > 1: "Selecting {strategy} because previous attempts with {failedStrategies} failed. This addresses {differentAspect} of the problem."
-   
-5. **Thought 5: Plan verification and retry strategy**
-   - "After applying {strategy}, will re-run test to verify. If verification fails and attempts < {maxHealingAttempts}, orchestration will retry healing with next attempt. If attempts = {maxHealingAttempts}, will exit with FAILED status for manual review."
-   - IF previous attempts exist: "If this fails, will have tried {listAllStrategies}. Remaining unexplored strategies: {remainingStrategies}."
+Sequential thinking MUST include these challenge questions:
 
-**Invocation:**
+1. **Thoughts 1-2:** Challenge error symptom interpretation and attempt status
+   - ❓ Why could error message be misleading about root cause?
+   - ❓ What did previous healing attempts reveal about the problem?
+   
+2. **Thoughts 3-4:** Systematically enumerate and validate causes
+   - ❓ Could multiple root causes be present simultaneously?
+   - ❓ How to avoid repeating failed strategies?
+   
+3. **Thoughts 5-6:** Select healing strategy with skepticism
+   - Healing strategy selection based on evidence
+   - Alternative strategies if primary fails
+   
+4. **Thought 7:** Plan verification and exit strategy
+   - Verification approach
+   - What to do if max attempts reached
+
+**Execution Pattern (Challenge-Analysis-Mitigation):**
 
 ```typescript
-// Example sequential thinking with attempt tracking (non-executable):
+// Example sequential thinking WITH INTEGRATED critical thinking (non-executable):
+//
+// Thought 1: Challenge error symptom interpretation
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Healing attempt 1/3. Test failed with TimeoutError: 'locator.click: Timeout 30000ms exceeded. Locator: #loginButton'. Failed step: Click login button. Analyzing symptoms: Button exists in HTML but click times out.",
+//   thought: "❓ CHALLENGE: Why could error message be misleading? → ANALYSIS: Healing attempt ${healingAttemptCount}/${maxHealingAttempts}. Test failed with ${errorType}: '${errorMessage}'. Failed step: ${failedStep}. Locator: ${locator}. Error says 'Timeout 30000ms exceeded' for locator '#loginButton'. BUT timeout could be SYMPTOM, not root cause. Real causes: 1) Button doesn't exist (wrong locator), 2) Button exists but not visible (overlay blocking), 3) Page still loading (network delay), 4) JavaScript error preventing click, 5) Strict mode (multiple matches). → MITIGATION: Don't trust error at face value. Investigate HTML/DOM state. Check for overlays, loading spinners, console errors.",
 //   thoughtNumber: 1,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: true
+// })
+//
+// Thought 2: Analyze previous attempt failures (if any)
+// mcp_sequential-th_sequentialthinking({
+//   thought: `${healingAttemptCount > 1 ? '❓ CHALLENGE: What did previous healing attempts reveal? → ANALYSIS: Previous attempt(s) tried: ${previousStrategies.join(', ')}. All FAILED. This means: 1) Locator change strategy didn't work → locator might be correct, 2) Wait strategy didn't work → timing might not be the issue, 3) Root cause is something else. Pattern: If locator strategies failed, investigate element state (disabled, hidden, overlays). → MITIGATION: Eliminate ruled-out causes. Focus on unexplored hypotheses: element state, strict mode, page structure changes.' : 'First healing attempt - no previous learnings to apply.'}`,
+//   thoughtNumber: 2,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 3: Enumerate and validate multiple causes
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Could multiple root causes be present? → ANALYSIS: Enumerating possible causes (filtered by previous attempts): 1) Locator incorrect (ID/class changed) - likelihood ${assessLikelihood('locator', errorDetails, previousAttempts)}, 2) Timing issue (element not loaded) - likelihood ${assessLikelihood('timing', errorDetails, previousAttempts)}, 3) Element state (disabled/hidden) - likelihood ${assessLikelihood('state', errorDetails, previousAttempts)}, 4) Strict mode (multiple matches) - likelihood ${assessLikelihood('strict', errorDetails, previousAttempts)}, 5) Overlay blocking click - likelihood ${assessLikelihood('overlay', errorDetails, previousAttempts)}. → MITIGATION: Investigate causes in likelihood order. If multiple causes likely, healing strategy must address ALL (e.g., wait + locator fix + overlay handling).",
+//   thoughtNumber: 3,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 4: Investigate most likely cause with evidence
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Hypothesis: ${mostLikelyCause} (${likelihoodScore}% likelihood). Evidence: ${indicators.join(', ')}. Verification action: ${verificationAction}. ${healingAttemptCount > 1 ? `Different from previous attempts because: ${comparisonWithPreviousHypotheses}` : 'First hypothesis to investigate.'}",
+//   thoughtNumber: 4,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 5: Select healing strategy avoiding repeats
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: How to ensure healing strategy is different from failed attempts? → ANALYSIS: Root cause identified: ${rootCause}. Healing strategy: ${strategy}. Actions: ${actions.join(', ')}. ${healingAttemptCount > 1 ? `Previous attempts tried ${failedStrategies.join(', ')}. This strategy differs by ${differentiationFactor}.` : 'First healing strategy to apply.'} → MITIGATION: If this strategy also fails and attempts < ${maxHealingAttempts}, document failure reason for next attempt. Remaining unexplored strategies: ${remainingStrategies.join(', ')}.",
+//   thoughtNumber: 5,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 6: Alternative strategies if primary fails
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Alternative strategies (ranked by likelihood): 1) ${altStrategy1} - addresses ${altCause1}, 2) ${altStrategy2} - addresses ${altCause2}, 3) ${altStrategy3} - addresses ${altCause3}. If current strategy (${primaryStrategy}) fails, orchestration will retry healing with attempt ${healingAttemptCount + 1}. Next attempt should try ${altStrategy1} based on current analysis.",
+//   thoughtNumber: 6,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 7: Verification and exit strategy
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: How to know if healing succeeded? → ANALYSIS: After applying ${strategy}, orchestration will re-run test. Verification: Test must PASS (no errors). If test fails again: 1) If attempts < ${maxHealingAttempts} → orchestration retries healing, 2) If attempts = ${maxHealingAttempts} → EXIT with FAILED, manual review required. → MITIGATION: Document healing action in output. If this is final attempt (${healingAttemptCount}/${maxHealingAttempts}), add detailed failure report: all tried strategies (${allTriedStrategies.join(', ')}), suspected root causes (${suspectedCauses.join(', ')}), recommended manual actions (${manualActions.join(', ')}).",
+//   thoughtNumber: 7,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: false
 // })
 ```
 
-**Critical Thinking Checkpoint 1 (Thought 2):**
-
-❓ **Challenge:** Why could error message accurately describe symptom but miss root cause?
-→ **Analysis:** TimeoutError could be symptom of: locator wrong, element not visible, click intercepted by overlay, network delay causing slow load, JavaScript error preventing interaction
-→ **Mitigation:** Always enumerate multiple causes (minimum 3), investigate each systematically, don't assume first hypothesis is correct
+**Output Validation:** Step 1 completion checkpoint MUST confirm critical thinking questions were addressed with Challenge-Analysis-Mitigation pattern, including analysis of previous attempts (if any).
 
 ### Step 2: Classify Error Type
 

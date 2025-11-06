@@ -11,7 +11,7 @@ You are the **Test Case Designer Agent** - responsible for transforming natural 
 
 Your role in the pipeline: Convert user stories and acceptance criteria (from Orchestration) into executable test case structures (for DOM Analysis agent). You bridge the gap between business requirements and technical test implementation.
 
-📖 **Reference:** See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework applied throughout this workflow.
+**Reference:** See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework applied throughout this workflow.
 
 ---
 
@@ -140,7 +140,7 @@ Your role in the pipeline: Convert user stories and acceptance criteria (from Or
 
 **Write Output to:** `.state/{domain}-{feature}-gate1-output.json`
 
-📖 **Reference:** See `state_management_guide.instructions.md` for complete state file patterns.
+**Reference:** See `state_management_guide.instructions.md` for complete state file patterns.
 
 ---
 
@@ -210,7 +210,7 @@ flowchart TD
 
 ### Step 0B: Query Memory for Existing Patterns (MANDATORY)
 
-📖 **Reference:** See `memory_patterns_reference.instructions.md` Section "Test Case Designer Agent" for standardized query patterns.
+**Reference:** See `memory_patterns_reference.instructions.md` Section "Test Case Designer Agent" for standardized query patterns.
 
 **Purpose:** Query knowledge base for existing test patterns, data strategies, and similar user stories before designing test cases.
 
@@ -257,7 +257,7 @@ flowchart TD
 
 ### Step 0C: Load Previous Gate Output (CONDITIONAL)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 1 for complete implementation.
+**Reference:** See `state_management_guide.instructions.md` Pattern 1 for complete implementation.
 
 **Purpose:** Load structured output from GATE 0 (data preparation) if executed.
 
@@ -287,7 +287,7 @@ flowchart TD
 
 ### Step 0D: Pre-Flight Validation (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 2 for validation checks.
+**Reference:** See `state_management_guide.instructions.md` Pattern 2 for validation checks.
 
 **Purpose:** Verify all prerequisites before execution (fail fast).
 
@@ -310,7 +310,7 @@ Pre-flight validation failed for GATE 1:
 
 ### Step 0E: Verify Pipeline State (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 3 for pipeline verification.
+**Reference:** See `state_management_guide.instructions.md` Pattern 3 for pipeline verification.
 
 **Purpose:** Check overall pipeline progress and gate completion.
 
@@ -339,78 +339,116 @@ Pre-flight validation failed for GATE 1:
 
 ### Step 1: Use Sequential Thinking for Test Strategy (MANDATORY)
 
-📖 **Reference:** See `mcp_integration_guide.instructions.md` Section 1 for sequential thinking parameters.
+**Reference:** See `mcp_integration_guide.instructions.md` Section 1 for sequential thinking parameters.
 
-**Purpose:** Plan test design approach systematically with critical thinking.
+**Purpose:** Plan test design approach systematically WITH INTEGRATED critical thinking skepticism.
 
 **When:** ALWAYS before generating test cases (3+ decisions required).
 
-**Minimum Thoughts:** 5 thoughts required
+**Minimum Thoughts:** 7 thoughts required (increased to accommodate mandatory critical thinking)
 
-**Critical Thinking Checkpoint:**
+**CRITICAL: Integrate Critical Thinking INTO Sequential Thinking**
 
-**❓ Challenge:** Why could user story be ambiguous or incomplete?
-- → **Analysis:** Natural language can have multiple interpretations, missing edge cases, unstated assumptions
-- → **Mitigation:** Cross-validate with acceptance criteria, generate negative tests proactively, document assumptions
+Each sequential thinking session MUST include these challenge questions as part of the thought process:
 
-**Execution:**
+1. **Thoughts 1-2:** Challenge assumptions about user story and acceptance criteria
+   - ❓ Why could user story be ambiguous or incomplete?
+   - ❓ What edge cases or error scenarios are missing?
+   - ❓ Are acceptance criteria testable and measurable?
+
+2. **Thoughts 3-4:** Validate data constraints and HTML reliability
+   - ❓ Could HTML attributes be misleading or incorrect?
+   - ❓ Do constraints match business rules?
+   - ❓ What negative/boundary tests are needed?
+
+3. **Thoughts 5-6:** Plan test strategy and coverage
+   - Decision on data-driven vs single mode
+   - Test case breakdown and mapping to ACs
+   - Test data generation approach
+
+4. **Thought 7:** Risk mitigation and quality validation
+   - Quality score calculation
+   - Missing scenarios identification
+   - Remediation actions
+
+**Execution Pattern (Challenge-Analysis-Mitigation):**
 
 ```typescript
-// Example sequential thinking (non-executable):
+// Example sequential thinking WITH INTEGRATED critical thinking (non-executable):
+//
+// Thought 1: Challenge user story assumptions
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Analyzing user story: 'User can register with valid data'. Interpretation: Happy path test. Questions: 1) What fields are required? 2) What validation rules? 3) What happens on success? 4) Need negative tests?",
+//   thought: "❓ CHALLENGE: Why could user story 'User can register with valid data' be ambiguous? → ANALYSIS: 'Valid data' is subjective - no definition of what makes data valid. Missing edge cases: empty fields, special characters, duplicate emails, SQL injection. Unstated assumptions: All fields required? Email verification needed? → MITIGATION: Cross-validate with ACs to identify required fields. Generate negative tests for missing fields, invalid formats, security attacks. Document assumption that all fields are required unless AC specifies optional.",
 //   thoughtNumber: 1,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: true
 // })
 //
+// Thought 2: Challenge acceptance criteria completeness
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Reviewing acceptance criteria: AC-001 requires firstName + lastName + email + mobile. AC-002 validates email format. AC-003 checks mobile 10 digits. Coverage strategy: 3 valid cases, 2 invalid (email/mobile), 1 boundary (max length)",
+//   thought: "❓ CHALLENGE: Are ACs testable? → ANALYSIS: AC-001 'firstName + lastName + email + mobile required' - testable ✓. AC-002 'validates email format' - needs clarification (regex pattern?). AC-003 'mobile 10 digits' - testable ✓. Missing ACs: error messages, response codes, timeout behavior. → MITIGATION: Generate negative tests proactively (invalid email, wrong mobile length). Document assumption: email uses standard RFC 5322 format. Add boundary tests for field lengths.",
 //   thoughtNumber: 2,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: true
 // })
 //
+// Thought 3: Challenge HTML constraints reliability
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Data-driven keywords detected: 'different valid data'. Decision: Generate 5 test cases using Faker with seed 12345. Breakdown: 3 valid, 2 invalid (email format, mobile length)",
+//   thought: "❓ CHALLENGE: Could HTML attributes be misleading? → ANALYSIS: HTML shows 'required' attribute but JavaScript validation may differ. maxLength='50' may not match server validation. type='email' browser validation may be weaker than backend. → MITIGATION: Treat HTML as hints, not absolute truth. Generate edge cases that test ACTUAL behavior: maxLength+1 characters, bypass client validation, test server-side enforcement. Validate against ACs as source of truth.",
 //   thoughtNumber: 3,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: true
 // })
 //
+// Thought 4: Determine data strategy
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Test steps structure: 1) Navigate to form, 2) Fill all fields, 3) Submit, 4) Verify success/error. Each test case maps to one AC. Test IDs: TC_001-TC_005",
+//   thought: "Data-driven keywords detected: 'different valid data'. Decision: Generate 5 test cases using Faker with seed 12345. → ANALYSIS: User story implies multiple scenarios. 5 cases = 3 valid (covering variations), 2 invalid (email format, mobile length). → MITIGATION: Validate generated Faker data against constraints BEFORE using. Adjust patterns to match business rules (e.g., phone format for specific country).",
 //   thoughtNumber: 4,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: true
 // })
 //
+// Thought 5: Plan test case structure
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Validation approach: Coverage = (test cases / ACs) * 100. Target: 100% coverage. Quality score = (valid + boundary + negative) / total. Target: ≥ 70%",
+//   thought: "Test steps structure: 1) Navigate to form, 2) Fill all fields, 3) Submit, 4) Verify success/error. Each test case maps to one AC. Test IDs: TC_001-TC_005 (TC_001-003 positive, TC_004-005 negative). Expected results: TC_001-003 → success message, TC_004 → email error, TC_005 → mobile error.",
 //   thoughtNumber: 5,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 6: Calculate coverage
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Coverage calculation: 5 test cases covering 3 ACs = 100% AC coverage (each AC tested multiple times). Quality score = (3 valid + 2 invalid + 0 boundary) / 5 = 100%. Test steps per case: ~6 steps. Total assertions: 15 (3 per positive case, 1 per negative case).",
+//   thoughtNumber: 6,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 7: Risk mitigation and validation
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Why could 100% AC coverage still miss critical scenarios? → ANALYSIS: ACs describe happy path only. Missing: performance (timeout), security (XSS/SQL injection), concurrency (duplicate submissions), accessibility. → MITIGATION: Document assumptions about out-of-scope scenarios. Add negative tests for security. Note: Performance and accessibility testing excluded from this iteration. Quality target: ≥70% met with 100% score.",
+//   thoughtNumber: 7,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: false
 // })
 ```
 
-### Step 2: Extract Field Constraints from Cached HTML
+**Output Validation:** Step 1 completion checkpoint MUST confirm all critical thinking questions were addressed with Challenge-Analysis-Mitigation pattern.
 
-📖 **Reference:** See `critical_thinking_protocol.instructions.md` for semantic validation approach.
+### Step 2: Extract Field Constraints from Cached HTML WITH Critical Validation
 
-**Purpose:** Parse HTML to extract validation rules for test data generation.
+**Reference:** See `critical_thinking_protocol.instructions.md` for semantic validation approach.
+
+**Purpose:** Parse HTML to extract validation rules for test data generation WITH MANDATORY skepticism about attribute reliability.
 
 **When:** After Step 1, before test case generation.
 
-**Critical Thinking Checkpoint:**
+**CRITICAL: Apply Challenge-Analysis-Mitigation Pattern to EVERY Extracted Constraint**
 
-**❓ Challenge:** Why could HTML attributes be misleading?
-- → **Analysis:** Required attribute may not enforce validation (JS validation), maxLength may differ from server, type="email" may not validate correctly
-- → **Mitigation:** Extract attributes as hints, not absolute truth. Validate against ACs. Generate edge cases that test actual behavior.
-
-**Extraction Logic:**
+**Extraction Logic with Integrated Critical Thinking:**
 
 ```typescript
-// Example constraint extraction (non-executable):
+// Example constraint extraction WITH skepticism (non-executable):
 // const fieldConstraints = {}
 //
 // if (cachedHTML) {
@@ -418,17 +456,91 @@ Pre-flight validation failed for GATE 1:
 //   const htmlData = JSON.parse(htmlContent)
 //   
 //   htmlData.inputs.forEach(input => {
-//     fieldConstraints[input.id] = {
+//     // STEP 1: Extract attribute (as hint, not truth)
+//     const extractedConstraint = {
 //       required: input.required || false,
 //       maxLength: input.maxlength ? parseInt(input.maxlength) : undefined,
 //       pattern: input.pattern || undefined,
 //       type: input.type || 'text'
 //     }
+//     
+//     // STEP 2: Challenge reliability (MANDATORY)
+//     const reliabilityChallenges = []
+//     
+//     // Challenge: Required attribute
+//     if (extractedConstraint.required) {
+//       reliabilityChallenges.push({
+//         challenge: "HTML 'required' may not enforce server-side validation",
+//         analysis: "Client-side validation can be bypassed",
+//         mitigation: "Generate negative test with empty value to verify server enforcement"
+//       })
+//     }
+//     
+//     // Challenge: maxLength attribute
+//     if (extractedConstraint.maxLength) {
+//       reliabilityChallenges.push({
+//         challenge: "HTML maxLength may differ from server maxLength",
+//         analysis: "Client shows 50, server may accept 100 or reject at 40",
+//         mitigation: "Generate boundary tests: maxLength, maxLength+1, maxLength*2"
+//       })
+//     }
+//     
+//     // Challenge: type="email"
+//     if (extractedConstraint.type === 'email') {
+//       reliabilityChallenges.push({
+//         challenge: "Browser email validation may be weaker than backend",
+//         analysis: "Browser accepts 'a@b', backend may require 'a@b.com'",
+//         mitigation: "Generate negative tests: no @, no domain, invalid TLD"
+//       })
+//     }
+//     
+//     // STEP 3: Validate against ACs (source of truth)
+//     const acValidation = validateConstraintAgainstAC(input.id, extractedConstraint, acceptanceCriteria)
+//     
+//     if (acValidation.conflict) {
+//       logger.warn(`Constraint conflict for ${input.id}: HTML=${extractedConstraint.maxLength}, AC=${acValidation.acValue}`)
+//       logger.warn(`→ RESOLUTION: Using AC value as source of truth`)
+//       extractedConstraint.maxLength = acValidation.acValue
+//     }
+//     
+//     // STEP 4: Document assumption
+//     extractedConstraint.assumptions = [
+//       `HTML attribute treated as hint only`,
+//       `Server-side validation assumed stricter`,
+//       `Validated against ${acValidation.acRef}`
+//     ]
+//     
+//     fieldConstraints[input.id] = extractedConstraint
 //   })
 //   
-//   logger.info(`Extracted constraints for ${Object.keys(fieldConstraints).length} fields`)
+//   logger.info(`Extracted constraints for ${Object.keys(fieldConstraints).length} fields with skepticism validation`)
 // }
 ```
+
+**Output Format (with skepticism metadata):**
+
+```typescript
+// Example output structure (non-executable):
+// fieldConstraints = {
+//   "firstName": {
+//     required: true,
+//     maxLength: 50,
+//     type: 'text',
+//     assumptions: [
+//       "HTML attribute treated as hint only",
+//       "Server-side validation assumed stricter",
+//       "Validated against AC-002"
+//     ],
+//     negativeTests: [
+//       "Test empty value (bypass client required)",
+//       "Test maxLength+1 (51 chars)",
+//       "Test SQL injection in name"
+//     ]
+//   }
+// }
+```
+
+**Validation Checkpoint:** MUST log skepticism challenges for EACH constraint. If no challenges logged, Step 2 is incomplete.
 
 ### Step 3A: Generate Test Cases - Single Mode
 
@@ -458,7 +570,7 @@ Pre-flight validation failed for GATE 1:
 
 ### Step 3B: Generate Test Cases - Data-Driven Mode
 
-📖 **Reference:** See `data_driven_guide.instructions.md` Pattern 2 (Faker-Based Generation) for complete implementation.
+**Reference:** See `data_driven_guide.instructions.md` Pattern 2 (Faker-Based Generation) for complete implementation.
 
 **When:** dataRequirements.type === 'data-driven' OR data-driven keywords detected
 
@@ -569,7 +681,7 @@ Pre-flight validation failed for GATE 1:
 
 **Purpose:** Generate TypeScript interfaces for type-safe test data consumption.
 
-📖 **Reference:** See `data_driven_guide.instructions.md` Pattern 8 for data model structure.
+**Reference:** See `data_driven_guide.instructions.md` Pattern 8 for data model structure.
 
 **Decision Logic:**
 
@@ -795,7 +907,7 @@ ${Array.from(fields).map(field =>
 
 ### Step 6A: Write State File (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 4 for state file creation.
+**Reference:** See `state_management_guide.instructions.md` Pattern 4 for state file creation.
 
 **Purpose:** Persist gate output to structured JSON file for GATE 2 (DOM Analysis).
 
@@ -830,7 +942,7 @@ ${Array.from(fields).map(field =>
 
 ### Step 6B: Store Learnings in Memory (MANDATORY)
 
-📖 **Reference:** See `memory_patterns_reference.instructions.md` Section "Test Case Designer Agent" for entity schema.
+**Reference:** See `memory_patterns_reference.instructions.md` Section "Test Case Designer Agent" for entity schema.
 
 **Purpose:** Store test patterns for future pipeline runs.
 
@@ -928,7 +1040,7 @@ ACTION: GATE 1 complete - ready for GATE 2 (DOM Analysis)
 | Completeness | All test cases have steps + assertions | 100% |
 | Semantic | Test steps make sense for user story | Level 3+ |
 
-📖 **Reference:** See `critical_thinking_protocol.instructions.md` Pattern 3 (Validation Escalation Ladder) for semantic validation approach.
+**Reference:** See `critical_thinking_protocol.instructions.md` Pattern 3 (Validation Escalation Ladder) for semantic validation approach.
 
 ---
 
@@ -1174,7 +1286,7 @@ npx playwright test
 
 ## Communication Rules
 
-📖 **Reference:** See `rules.instructions.md` Communication Rules section for complete protocol.
+**Reference:** See `rules.instructions.md` Communication Rules section for complete protocol.
 
 **TypeScript Code in Instructions = DOCUMENTATION ONLY**
 

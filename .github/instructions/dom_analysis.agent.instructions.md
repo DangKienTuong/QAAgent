@@ -11,7 +11,7 @@ You are the **DOM Analysis Agent** - responsible for mapping logical test action
 
 Your role in the pipeline: Convert test steps (from Test Case Designer) into concrete element locators (for POM Generator). You bridge the gap between abstract test logic and specific DOM elements.
 
-📖 **Reference:** See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework applied throughout locator analysis.
+**Reference:** See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework applied throughout locator analysis.
 
 ---
 
@@ -120,7 +120,7 @@ Your role in the pipeline: Convert test steps (from Test Case Designer) into con
 
 **Write Output to:** `.state/{domain}-{feature}-gate2-output.json`
 
-📖 **Reference:** See `state_management_guide.instructions.md` for complete state file patterns.
+**Reference:** See `state_management_guide.instructions.md` for complete state file patterns.
 
 ---
 
@@ -182,7 +182,7 @@ flowchart TD
 
 ### Step 0B: Query Memory for Known Locators (MANDATORY)
 
-📖 **Reference:** See `memory_patterns_reference.instructions.md` Section "DOM Analysis Agent" for standardized query patterns.
+**Reference:** See `memory_patterns_reference.instructions.md` Section "DOM Analysis Agent" for standardized query patterns.
 
 **Purpose:** Query knowledge base for existing locator patterns and component interaction strategies.
 
@@ -224,7 +224,7 @@ flowchart TD
 
 ### Step 0C: Load Previous Gate Output (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 1 for complete implementation.
+**Reference:** See `state_management_guide.instructions.md` Pattern 1 for complete implementation.
 
 **Purpose:** Load structured test cases from GATE 1 (Test Case Designer).
 
@@ -270,7 +270,7 @@ flowchart TD
 
 ### Step 0D: Pre-Flight Validation (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 2 for validation checks.
+**Reference:** See `state_management_guide.instructions.md` Pattern 2 for validation checks.
 
 **Purpose:** Verify all prerequisites before execution (fail fast).
 
@@ -294,7 +294,7 @@ Pre-flight validation failed for GATE 2:
 
 ### Step 0E: Verify Pipeline State (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 3 for pipeline verification.
+**Reference:** See `state_management_guide.instructions.md` Pattern 3 for pipeline verification.
 
 **Purpose:** Check overall pipeline progress and gate completion.
 
@@ -321,63 +321,150 @@ Pre-flight validation failed for GATE 2:
 
 ### Step 1: Plan DOM Analysis Strategy with Sequential Thinking (CONDITIONAL)
 
-📖 **Reference:** See `mcp_integration_guide.instructions.md` Section 1 for sequential thinking parameters.
+**Reference:** See `mcp_integration_guide.instructions.md` Section 1 for sequential thinking parameters.
 
-**Purpose:** Plan locator strategy systematically for complex forms.
+**Purpose:** Plan locator strategy systematically for complex forms WITH INTEGRATED critical thinking about HTML reliability.
 
 **When:** If 3+ test steps OR SPA detected OR special components suspected.
 
-**Minimum Thoughts:** 3 thoughts required
+**Minimum Thoughts:** 5 thoughts required (increased to accommodate mandatory critical thinking)
 
-**Critical Thinking Checkpoint:**
+**CRITICAL: Integrate Critical Thinking INTO Sequential Thinking**
 
-**❓ Challenge:** Why could static HTML be insufficient for locator generation?
-- → **Analysis:** SPA with client-side rendering (HTML is skeleton), dynamic content loaded via JS, shadow DOM, iframes
-- → **Mitigation:** Check HTML size (< 5KB suspicious), detect SPA indicators (React, Vue, Angular), log warnings
+Sequential thinking MUST include these challenge questions:
 
-**Execution:**
+1. **Thoughts 1-2:** Challenge HTML completeness and reliability
+   - ❓ Why could static HTML be insufficient for locator generation?
+   - ❓ Could elements be missing due to SPA/shadow DOM/iframes?
+   
+2. **Thoughts 3-4:** Plan locator strategy with skepticism
+   - Locator priority and fallback strategy
+   - Uniqueness validation approach
+   
+3. **Thought 5:** Risk mitigation for dynamic content
+   - Special component detection
+   - Interaction pattern documentation
+
+**Execution Pattern (Challenge-Analysis-Mitigation):**
 
 ```typescript
-// Example sequential thinking (non-executable):
+// Example sequential thinking WITH INTEGRATED critical thinking (non-executable):
+//
+// Thought 1: Challenge HTML completeness
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Analyzing HTML structure: Found ${allTestSteps.length} test steps to map. HTML size: ${htmlContent.length} chars. Detected SPA indicators: ${isSPA ? 'Yes (React/Vue/Angular)' : 'No'}. Strategy: Parse HTML → Match elements → Generate 3 locators per element → Score confidence",
+//   thought: "❓ CHALLENGE: Why could static HTML be insufficient? → ANALYSIS: Analyzing HTML: ${htmlContent.length} chars, ${allTestSteps.length} test steps to map. Detected SPA indicators: ${isSPA ? 'Yes (React/Vue/Angular detected)' : 'No'}. SPA concern: HTML is skeleton only, real elements rendered client-side. HTML size < 5KB would be suspicious (current: ${Math.round(htmlContent.length/1024)}KB). → MITIGATION: If SPA detected, log warning 'Locators may need adjustment after real DOM inspection'. Parse HTML as baseline, document assumptions about client-side rendering.",
 //   thoughtNumber: 1,
-//   totalThoughts: 3,
+//   totalThoughts: 5,
 //   nextThoughtNeeded: true
 // })
 //
+// Thought 2: Challenge element extraction reliability
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Locator priority: 1) ID (stable, unique), 2) data-testid (testing-specific), 3) ARIA label (accessible), 4) CSS class (if unique), 5) text content, 6) XPath (last resort). For each element: Check uniqueness, calculate stability score, generate 3 fallbacks",
+//   thought: "❓ CHALLENGE: Could HTML parsing miss critical elements? → ANALYSIS: Elements may be in shadow DOM (Web Components), iframes (nested contexts), dynamically added post-render (AJAX), or hidden by CSS (display:none). Expected elements based on test steps: ${allTestSteps.length}. If extracted < 50% of expected, HTML is incomplete. → MITIGATION: Extract all input/button/select elements. Log stats: 'Extracted X elements for Y test steps (ratio: Z%)'. If ratio < 50%, warn 'Low element extraction - verify SPA rendering complete'.",
 //   thoughtNumber: 2,
-//   totalThoughts: 3,
+//   totalThoughts: 5,
 //   nextThoughtNeeded: true
 // })
 //
+// Thought 3: Locator strategy with stability skepticism
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Special components detection: Look for react-select (class includes 'react-select'), datepickers (type='date' or class includes 'datepicker'), file uploads (type='file'). For each: Document interaction pattern, store in memory for future runs",
+//   thought: "Locator priority (stability-first): 1) ID (stable if not auto-generated), 2) data-testid (testing-specific, unlikely to change), 3) ARIA label (accessible, semantic), 4) CSS class (if unique and not utility classes like 'btn-primary'), 5) text content (if unique), 6) XPath (fragile, last resort). → CHALLENGE: Why could ID be unstable? → ANALYSIS: IDs like 'input-12345' or 'field_0' suggest auto-generation. → MITIGATION: Check ID pattern. If contains numbers only or random strings, reduce confidence score by 30%.",
 //   thoughtNumber: 3,
-//   totalThoughts: 3,
+//   totalThoughts: 5,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 4: Generate fallback locators
+// mcp_sequential-th_sequentialthinking({
+//   thought: "For each element: Generate 3 locators (primary + 2 fallbacks). Calculate uniqueness: Query HTML for selector, count matches. If matches > 1, locator is NOT unique → reduce confidence. Calculate stability score: ID (100%) > data-testid (95%) > ARIA (85%) > CSS class (60%) > text (50%) > XPath (30%). Primary locator must have confidence ≥ 70% OR log warning.",
+//   thoughtNumber: 4,
+//   totalThoughts: 5,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 5: Special components and risk mitigation
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Special components detection: react-select (class*='react-select'), datepickers (type='date' OR class*='datepicker'), file uploads (type='file'), dropdowns (select OR role='combobox'). Each requires custom interaction pattern. → MITIGATION: Document interaction in locatorType metadata. Store patterns in memory for future runs. If special components > 30% of elements, warn 'High complexity - manual verification recommended'.",
+//   thoughtNumber: 5,
+//   totalThoughts: 5,
 //   nextThoughtNeeded: false
 // })
 ```
 
-### Step 2: Parse HTML and Extract Interactive Elements
+**Output Validation:** Step 1 completion checkpoint MUST confirm HTML reliability challenges were addressed with Challenge-Analysis-Mitigation pattern.
 
-**Purpose:** Extract all interactive elements from cached HTML.
+### Step 2: Parse HTML and Extract Interactive Elements WITH Critical Validation
+
+**Purpose:** Extract all interactive elements from cached HTML WITH MANDATORY skepticism about completeness.
 
 **When:** After Step 1 (or Step 0E if sequential thinking skipped).
 
-**Critical Thinking Checkpoint:**
+**CRITICAL: Apply Challenge-Analysis-Mitigation Pattern to Element Extraction**
 
-**❓ Challenge:** Why could HTML parsing miss critical elements?
-- → **Analysis:** Elements in shadow DOM, iframes, dynamically added post-render, hidden by CSS
-- → **Mitigation:** Log extraction stats (expected vs actual), warn if suspiciously low count
-
-**Execution:**
+**Execution with Integrated Critical Thinking:**
 
 ```typescript
-// Example HTML parsing (non-executable):
-// logger.info('Step 2: Parsing HTML and extracting interactive elements')
+// Example HTML parsing WITH skepticism (non-executable):
+// logger.info('Step 2: Parsing HTML and extracting interactive elements with critical validation')
+//
+// const htmlContent = await read_file(cachedHTML, 1, 100000)
+// const htmlData = JSON.parse(htmlContent)
+//
+// // STEP 1: Extract elements
+// const extractedElements = {
+//   inputs: parseInputElements(htmlData.html),
+//   buttons: parseButtonElements(htmlData.html),
+//   selects: parseSelectElements(htmlData.html),
+//   textareas: parseTextareaElements(htmlData.html)
+// }
+//
+// const totalExtracted = 
+//   extractedElements.inputs.length + 
+//   extractedElements.buttons.length + 
+//   extractedElements.selects.length + 
+//   extractedElements.textareas.length
+//
+// // STEP 2: Challenge completeness (MANDATORY)
+// const expectedElementsFromTestSteps = allTestSteps.length
+// const extractionRatio = totalExtracted / expectedElementsFromTestSteps
+//
+// logger.info(`Extracted ${totalExtracted} elements for ${expectedElementsFromTestSteps} test steps (ratio: ${Math.round(extractionRatio * 100)}%)`)
+//
+// // Critical thinking checkpoint
+// if (extractionRatio < 0.5) {
+//   logger.warn(`❓ CHALLENGE: Why extraction ratio so low (${Math.round(extractionRatio * 100)}%)?`)
+//   logger.warn(`→ ANALYSIS: Possible causes: 1) SPA with client-side rendering, 2) Elements in shadow DOM, 3) Elements in iframes, 4) HTML snapshot taken before full page load`)
+//   logger.warn(`→ MITIGATION: Proceeding with available elements. Locators may need manual adjustment. Flag test steps without matching elements.`)
+// }
+//
+// if (htmlData.detectedFeatures?.isSPA && totalExtracted < 5) {
+//   logger.error(`❓ CHALLENGE: SPA detected but only ${totalExtracted} elements found - HTML likely incomplete`)
+//   logger.error(`→ ANALYSIS: React/Vue/Angular apps render content client-side. Static HTML is skeleton only.`)
+//   logger.error(`→ MITIGATION: CRITICAL WARNING - Recommend re-fetching HTML after JavaScript execution OR using Playwright's page.content() for full DOM.`)
+// }
+//
+// // STEP 3: Validate element types match test steps
+// const testStepActions = allTestSteps.map(step => step.action.toLowerCase())
+// const missingElementTypes = []
+//
+// if (testStepActions.some(a => a.includes('enter') || a.includes('input')) && extractedElements.inputs.length === 0) {
+//   missingElementTypes.push('inputs (test steps require text entry)')
+// }
+// if (testStepActions.some(a => a.includes('click') || a.includes('submit')) && extractedElements.buttons.length === 0) {
+//   missingElementTypes.push('buttons (test steps require clicking)')
+// }
+// if (testStepActions.some(a => a.includes('select') || a.includes('choose')) && extractedElements.selects.length === 0) {
+//   missingElementTypes.push('select dropdowns (test steps require selection)')
+// }
+//
+// if (missingElementTypes.length > 0) {
+//   logger.error(`❓ CHALLENGE: Element type mismatch detected`)
+//   logger.error(`→ ANALYSIS: Test steps require ${missingElementTypes.join(', ')} but none found in HTML`)
+//   logger.error(`→ MITIGATION: Flag affected test steps as 'LOW CONFIDENCE'. Manual locator creation required.`)
+// }
+```
+
+**Validation Checkpoint:** MUST log skepticism challenges for element extraction. If no challenges logged or extraction ratio < 50% without warning, Step 2 is incomplete.
 //
 // const htmlContent = await read_file(cachedHTML, 1, 50000)
 // const htmlData = JSON.parse(htmlContent)
@@ -552,7 +639,7 @@ Pre-flight validation failed for GATE 2:
 
 ### Step 5: Calculate Confidence Scores
 
-📖 **Reference:** See `critical_thinking_protocol.instructions.md` for validation levels.
+**Reference:** See `critical_thinking_protocol.instructions.md` for validation levels.
 
 **Purpose:** Score locator reliability using uniqueness, stability, and specificity.
 
@@ -746,7 +833,7 @@ Pre-flight validation failed for GATE 2:
 
 ### Step 8A: Write State File (MANDATORY)
 
-📖 **Reference:** See `state_management_guide.instructions.md` Pattern 4 for state file creation.
+**Reference:** See `state_management_guide.instructions.md` Pattern 4 for state file creation.
 
 **Purpose:** Persist gate output to structured JSON file for GATE 3 (POM Generator).
 
@@ -778,7 +865,7 @@ Pre-flight validation failed for GATE 2:
 
 ### Step 8B: Store Learnings in Memory (MANDATORY)
 
-📖 **Reference:** See `memory_patterns_reference.instructions.md` Section "DOM Analysis Agent" for entity schema.
+**Reference:** See `memory_patterns_reference.instructions.md` Section "DOM Analysis Agent" for entity schema.
 
 **Purpose:** Store locator patterns for future pipeline runs.
 
@@ -909,7 +996,7 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 
 ## Communication Rules
 
-📖 **Reference:** See `rules.instructions.md` Communication Rules section for complete protocol.
+**Reference:** See `rules.instructions.md` Communication Rules section for complete protocol.
 
 **TypeScript Code in Instructions = DOCUMENTATION ONLY**
 

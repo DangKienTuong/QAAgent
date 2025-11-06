@@ -265,44 +265,93 @@ Check overall pipeline progress:
 
 ### Step 1: Sequential Thinking (MANDATORY)
 
-**When:** ALWAYS for POM generation (5 thoughts minimum)
+**When:** ALWAYS for POM generation (7 thoughts minimum - increased to accommodate critical thinking)
 
-**Purpose:** Plan code generation strategy, template selection, self-healing integration
+**Purpose:** Plan code generation strategy WITH INTEGRATED critical thinking about template reliability and locator validity.
 
-**Thought Pattern:**
+**CRITICAL: Integrate Critical Thinking INTO Sequential Thinking**
 
-1. **Thought 1: Analyze test pattern**
-   - "I will analyze test structure: {count} test cases with {pattern} data strategy. Test steps include {types}."
-   
-2. **Thought 2: Select code templates**
-   - "Based on {totalCases} test cases, I will use {pattern} test pattern. Page object requires methods: {methods}."
-   
-3. **Thought 3: Plan self-healing logic**
-   - "Element mappings show {confidence}% average confidence. I will generate fallback chains: primary → fallback1 → fallback2 with error enrichment."
-   
-4. **Thought 4: Identify special components and reusable code**
-   - "Detected special components: {types}. Will use interaction patterns: {patterns}. Checking for reusable components: {componentNames}."
-   
-5. **Thought 5: Validate completeness**
-   - "All test steps mapped. Will generate {count} files: page object, test spec, fixture update. Reusing {count} existing components. Compilation validation required."
+Sequential thinking MUST include these challenge questions:
 
-**Invocation:**
+1. **Thoughts 1-2:** Challenge test pattern analysis and data assumptions
+   - ❓ Could test cases be incomplete or ambiguous?
+   - ❓ Are element mappings reliable enough for code generation?
+   
+2. **Thoughts 3-4:** Validate template selection and locator syntax
+   - ❓ Why could mapped locators still fail in generated code?
+   - ❓ Could templates be outdated or incompatible?
+   
+3. **Thoughts 5-6:** Plan self-healing and special components
+   - Self-healing fallback chain strategy
+   - Special component interaction patterns
+   
+4. **Thought 7:** Risk mitigation and compilation validation
+   - Completeness check
+   - Compilation validation plan
+
+**Execution Pattern (Challenge-Analysis-Mitigation):**
 
 ```typescript
-// Example sequential thinking (non-executable):
+// Example sequential thinking WITH INTEGRATED critical thinking (non-executable):
+//
+// Thought 1: Challenge test case completeness
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Analyzing test structure: 5 test cases with data-driven strategy. Test steps include fill (3 fields), click (1 button), verify (1 assertion). Average confidence: 87%.",
+//   thought: "❓ CHALLENGE: Could test cases be incomplete? → ANALYSIS: Analyzing test structure: ${testCases.length} test cases with ${dataStrategy.type} strategy. Test steps include fill (${fillSteps} fields), click (${clickSteps} buttons), verify (${assertSteps} assertions). Total steps: ${totalSteps}. If steps < 3 per test, likely incomplete. If no verify steps, assertions missing. → MITIGATION: Validate each test case has ≥3 steps (navigate, action, verify). Flag tests without assertions as 'LOW QUALITY'.",
 //   thoughtNumber: 1,
-//   totalThoughts: 5,
+//   totalThoughts: 7,
 //   nextThoughtNeeded: true
+// })
+//
+// Thought 2: Challenge element mapping reliability
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Are element mappings reliable enough? → ANALYSIS: Element mappings show ${avgConfidence}% average confidence. Breakdown: ${highConfCount} high (≥80%), ${medConfCount} medium (60-79%), ${lowConfCount} low (<60%). Low confidence locators are fragile. → MITIGATION: If avg confidence < 70%, add extra fallback locators. For low confidence elements, generate 4 locators instead of 3. Document low confidence elements in generated code comments.",
+//   thoughtNumber: 2,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 3: Challenge locator syntax validity
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Why could mapped locators fail in generated code? → ANALYSIS: Locators may have: 1) Invalid CSS syntax (typos, special chars), 2) Wrong Playwright syntax (page.locator vs page.$), 3) Missing quotes/escaping. Validating ${elementMappings.length} locators for syntax. → MITIGATION: Parse each locator with regex validation: CSS (^[#.][a-zA-Z]), XPath (^//), text= (^text=). If invalid syntax detected, flag for manual review. Escape special characters in generated code.",
+//   thoughtNumber: 3,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 4: Challenge template compatibility
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Could templates be outdated? → ANALYSIS: Based on ${totalCases} test cases, selecting ${templatePattern} template. Template version: ${templateVersion}. Playwright version: ${playwrightVersion}. Template may use deprecated APIs (page.$ vs page.locator). → MITIGATION: Use latest Playwright best practices: page.locator(), expect().toBeVisible(), async/await. Avoid deprecated: page.$, waitForSelector. Validate generated code uses current API patterns.",
+//   thoughtNumber: 4,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 5: Plan self-healing fallback chains
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Self-healing strategy: For each element, generate fallback chain: primary locator (${primaryStrategy}) → fallback1 (${fallback1Strategy}) → fallback2 (${fallback2Strategy}). If all fail, throw enriched error with screenshot + DOM snapshot. Average confidence: ${avgConfidence}%. Elements with confidence <70% get 4 fallbacks instead of 3.",
+//   thoughtNumber: 5,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 6: Special components and interaction patterns
+// mcp_sequential-th_sequentialthinking({
+//   thought: "Detected special components: ${specialComponentTypes.join(', ')}. Interaction patterns: ${specialComponentTypes.map(type => `${type} → ${interactionPatterns[type]}`).join('; ')}. Checking for reusable components in tests/test-objects/gui/pageObjects/components/. Found: ${existingComponents.join(', ')}. Will import ${reuseCount} components instead of regenerating.",
+//   thoughtNumber: 6,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 7: Completeness and risk mitigation
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Why could all steps be mapped but code fail? → ANALYSIS: All ${totalSteps} test steps mapped. Will generate ${fileCount} files: page object, test spec, fixture update. Reusing ${reuseCount} components. Risks: 1) Locator typos in generated code, 2) Missing imports, 3) Type errors. → MITIGATION: Run TypeScript compilation check AFTER generation. If compilation errors, parse errors and fix: missing imports (add imports), type errors (add type annotations), syntax errors (fix quotes/escaping). Target: 0 compilation errors.",
+//   thoughtNumber: 7,
+//   totalThoughts: 7,
+//   nextThoughtNeeded: false
 // })
 ```
 
-**Critical Thinking Checkpoint 1 (Thought 5):**
-
-❓ **Challenge:** Why could all test steps be mapped but code generation still fail?
-→ **Analysis:** Element mappings may reference invalid locators (typos, wrong syntax), special components may need custom interaction logic not in standard templates
-→ **Mitigation:** Validate locator syntax before code generation, detect special components and apply correct interaction patterns
+**Output Validation:** Step 1 completion checkpoint MUST confirm critical thinking questions were addressed with Challenge-Analysis-Mitigation pattern.
 
 ### Step 2: Component Reuse Detection (MANDATORY)
 
@@ -1140,7 +1189,7 @@ ACTION: PROCEEDING TO GATE 4 (Test Execution)
 
 Support multi-environment testing by using environment-specific configuration from `environments/` directory.
 
-📖 **Reference:** See `playwright.config.ts` for environment loading logic.
+**Reference:** See `playwright.config.ts` for environment loading logic.
 
 ### Environment Files Structure
 
