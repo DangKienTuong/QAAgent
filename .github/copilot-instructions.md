@@ -296,7 +296,7 @@ flowchart TD
     H -->|No| J[GATE 1: Test Design]
     I --> J
     J --> K[GATE 2: DOM Mapping]
-    K --> L[GATE 3: Code Generation]
+    K --> L[GATE 3: POM Generation]
     L --> M[GATE 4: Test Execution]
     M --> N{Failures?}
     N -->|Yes, Consecutive| O[Invoke Test Healing]
@@ -597,7 +597,7 @@ flowchart TD
 
 **On Failure:** Throw error, do NOT proceed to GATE 3
 
-### GATE 3: Code Generation
+### GATE 3: POM Generation
 
 **Execution (Following Agent Delegation Protocol):**
 
@@ -907,7 +907,7 @@ MCP Execution Audit:
 - GATE 0: Data Preparation (Conditional)
 - GATE 1: Test Case Design
 - GATE 2: DOM Element Mapping
-- GATE 3: Code Generation
+- GATE 3: POM Generation
 - GATE 4: Test Execution
 - GATE 5: Memory Storage
 - Todo Updates: All gates tracked
@@ -1071,7 +1071,7 @@ User Request
   → GATE 0: Data Prep (conditional)
   → GATE 1: Test Design
   → GATE 2: DOM Mapping
-  → GATE 3: Code Generation
+  → GATE 3: POM Generation
   → GATE 4: Test Execution & Healing
   → GATE 5: Learning Storage
   → FINAL: Self-Audit Checkpoint
