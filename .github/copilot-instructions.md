@@ -445,16 +445,9 @@ flowchart TD
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
-   - **Step 0A:** Read `.github/agents/test_case_designer.agent` using `read_file` tool
-   - **Step 0B:** Query memory for data patterns using `mcp_memory_search_nodes`
-   - **Step 0C:** Skip (N/A for GATE 0)
-   - **Step 0D:** Validate input (userStory, acceptanceCriteria, dataRequirements present)
-   - **Step 0E:** Verify pipeline state using `manage_todo_list({ operation: 'read' })`
-   - **Step 1:** Plan data generation strategy using `mcp_sequential-th_sequentialthinking` (min 3 thoughts)
-   - **Step 3B:** Generate test data sets (3 valid, 1 boundary, 1 negative)
-   - **Step 6A:** Write output to `.state/{domain}-{feature}-gate0-output.json` using `create_file`
-   - **Step 6B:** Store DataPreparation entity using `mcp_memory_create_entities`
-   - **Step 7:** Output checkpoint markdown
+   ```
+   Execute: All steps from .github/instructions/test_case_designer.agent.instructions.md
+   ```
 
 5. **Announce Completion:**
    ```
@@ -504,19 +497,9 @@ flowchart TD
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
-   - **Step 0A:** Read `.github/agents/test_case_designer.agent` using `read_file`
-   - **Step 0B:** Query memory: `"{domain} {feature} test patterns"`
-   - **Step 0C:** Load GATE 0 output (if exists)
-   - **Step 0D:** Pre-flight validation
-   - **Step 0E:** Verify pipeline state
-   - **Step 1:** Sequential thinking (min 5 thoughts for test strategy)
-   - **Step 2:** Extract field constraints from cached HTML
-   - **Step 3A/3B:** Generate test cases (single or data-driven mode)
-   - **Step 4:** Generate test IDs
-   - **Step 5:** Validate output
-   - **Step 6A:** Write `.state/{domain}-{feature}-gate1-output.json`
-   - **Step 6B:** Store TestPattern entity
-   - **Step 7:** Output checkpoint
+   ```
+   Execute: All steps from .github/instructions/test_case_designer.agent.instructions.md
+   ```
 
 5. **Announce Completion:**
    ```
@@ -563,21 +546,9 @@ flowchart TD
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
-   - **Step 0A:** Read `.github/agents/dom_analysis.agent` using `read_file`
-   - **Step 0B:** Query memory: `"{domain} {feature} locator patterns"`
-   - **Step 0C:** Load GATE 1 output (test cases)
-   - **Step 0D:** Pre-flight validation
-   - **Step 0E:** Verify pipeline state
-   - **Step 1:** Sequential thinking (min 3 thoughts for locator strategy)
-   - **Step 2:** Parse cached HTML
-   - **Step 3:** Match test steps to elements
-   - **Step 4:** Generate locator strategies with fallbacks
-   - **Step 5:** Calculate confidence scores
-   - **Step 6:** Detect special components (datepicker, react-select)
-   - **Step 7:** Validate quality (avg confidence >= 70%)
-   - **Step 8A:** Write `.state/{domain}-{feature}-gate2-output.json`
-   - **Step 8B:** Store LocatorPattern entity
-   - **Step 9:** Output checkpoint
+   ```
+   Execute: All steps from .github/instructions/dom_analysis.agent.instructions.md
+   ```
 
 5. **Announce Completion:**
    ```
@@ -628,20 +599,9 @@ flowchart TD
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
-   - **Step 0A:** Read `.github/agents/pom_generator.agent` using `read_file`
-   - **Step 0B:** Query memory: `"{domain} {feature} code generation patterns"`
-   - **Step 0C:** Load GATE 1 and GATE 2 outputs
-   - **Step 0D:** Pre-flight validation
-   - **Step 0E:** Verify pipeline state
-   - **Step 1:** Sequential thinking (min 5 thoughts for code generation strategy)
-   - **Step 2:** Generate Page Object Model class
-   - **Step 3:** Generate test spec with data-driven support
-   - **Step 4:** Update pageFixture.ts
-   - **Step 5:** Implement self-healing locator strategies
-   - **Step 6:** Validate compilation (TypeScript check)
-   - **Step 7A:** Write `.state/{domain}-{feature}-gate3-output.json`
-   - **Step 7B:** Store CodePattern entity
-   - **Step 8:** Output checkpoint
+   ```
+   Execute: All steps from .github/instructions/pom_generator.agent.instructions.md
+   ```
 
 5. **Announce Completion:**
    ```
@@ -782,17 +742,9 @@ flowchart TD
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
-   - **Step 0A:** Read `.github/agents/test_healing.agent`
-   - **Step 0B:** Query memory: `"{domain} {feature} healing patterns"`
-   - **Step 0C:** Load execution history
-   - **Step 0D:** Pre-flight validation
-   - **Step 0E:** Verify pipeline state
-   - **Step 1:** Sequential thinking (diagnose failure)
-   - **Step 2:** Apply healing strategy
-   - **Step 3:** Verify fix
-   - **Step 4A:** Write `.state/{domain}-{feature}-healing-{attemptNumber}.json`
-   - **Step 4B:** Store HealingPattern entity
-   - **Step 5:** Output checkpoint
+   ```
+   Execute: All steps from .github/instructions/test_healing.agent.instructions.md
+   ```
 
 5. **Announce Completion:**
    ```
