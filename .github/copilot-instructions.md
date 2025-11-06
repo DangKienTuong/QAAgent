@@ -98,7 +98,7 @@ interface GateResult {
 
 ### **STEP 0: Query Memory for Automation Patterns (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.6 for complete details.
+**📖 REFERENCE:** See `memory_patterns_reference.instructions.md` Section "Orchestration Agent" for standardized query patterns. See `mcp_integration_guide.instructions.md` Section 3 for complete todo list details.
 
 **Purpose:** Query knowledge base for existing automation patterns and execution history before starting pipeline.
 
@@ -169,7 +169,7 @@ if (executionHistory.entities.length > 0) {
 
 ### **STEP 1: Initialize Todo List (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 3 for complete details.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 3 for complete details.
 
 **Purpose:** Create tracking list for all pipeline gates before execution begins.
 
@@ -244,6 +244,43 @@ logger.info(`✅ Todo list initialized with ${gate0Required ? 8 : 7} items (GATE
 **Output:** Natural language summary:
 ```
 "I initialized a todo list with 8 pipeline gates. PRE-PROCESSING is in progress. GATE 0 will be executed because data-driven keywords were detected in the user story."
+```
+
+---
+
+### **STEP 2: Create Pipeline State File (MANDATORY)**
+
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete pipeline state schema.
+
+**Purpose:** Initialize master pipeline state file to track progress and enable crash recovery.
+
+**When:** ALWAYS after Step 1 (todo initialization), before executing gates.
+
+**Execution:**
+
+```typescript
+logger.info('📝 STEP 2: Creating pipeline state file')
+
+const pipelineState = {
+  status: 'IN_PROGRESS',
+  currentGate: 0,
+  completedGates: [],
+  metadata: {
+    domain: metadata.domain,
+    feature: metadata.feature,
+    url: request.url,
+    userStory: request.userStory,
+    acceptanceCriteria: request.acceptanceCriteria
+  }
+}
+
+await create_file(
+  `.state/${metadata.domain}-${metadata.feature}-pipeline.json`,
+  JSON.stringify(pipelineState, null, 2)
+)
+
+logger.info(`✅ Pipeline state initialized: .state/${metadata.domain}-${metadata.feature}-pipeline.json`)
+logger.info(`   Domain: ${metadata.domain}, Feature: ${metadata.feature}`)
 ```
 
 ---
@@ -384,20 +421,45 @@ function shouldExecuteGate0(request: PipelineRequest, cachedHTML: CachedHTML): b
 
 **Execution:**
 
+🚪 **GATE 0: Data Preparation (Conditional)**
+
+Now I'll invoke the Test Case Designer agent for data preparation:
+
+🧠 **Executing Test Case Designer agent**
+
+---
+
 **HOW TO INVOKE TEST CASE DESIGNER AGENT:**
 
-1. Create empty agent file to trigger Test Case Designer:
+1. **Prepare input with metadata:**
+   ```json
+   {
+     "metadata": {
+       "domain": "{metadata.domain}",
+       "feature": "{metadata.feature}"
+     },
+     "userStory": "{request.userStory}",
+     "url": "{request.url}",
+     "acceptanceCriteria": [...]
+   }
+   ```
+
+2. Create empty agent file to trigger Test Case Designer:
    ```
    create_file('.github/agents/test_case_designer.agent', '')
    ```
 
-2. Provide input data as context or in a JSON file that the agent can read
-
 3. Wait for agent to complete and return results
 
-4. Validate the data file was created
+4. Validate the output state file was created: `.state/{domain}-{feature}-gate0-output.json` (if GATE 0 executed)
 
-5. Create checkpoint with gate outputs
+5. **Update pipeline state after gate completion:**
+   ```typescript
+   const pipelineState = JSON.parse(await read_file(`.state/${metadata.domain}-${metadata.feature}-pipeline.json`, 1, 1000))
+   pipelineState.currentGate = 0  // or 1 depending on which gate just completed
+   pipelineState.completedGates.push(0)
+   await create_file(`.state/${metadata.domain}-${metadata.feature}-pipeline.json`, JSON.stringify(pipelineState, null, 2))
+   ```
 
 6. Update todo list using `manage_todo_list` MCP tool:
    ```json
@@ -413,7 +475,7 @@ function shouldExecuteGate0(request: PipelineRequest, cachedHTML: CachedHTML): b
        {
          "id": 2,
          "title": "GATE 0: Data Preparation",
-         "description": "Completed: Generated test data sets",
+         "description": "Completed: Generated test data sets, wrote .state/{domain}-{feature}-gate0-output.json",
          "status": "completed"
        },
        {
@@ -432,6 +494,14 @@ function shouldExecuteGate0(request: PipelineRequest, cachedHTML: CachedHTML): b
 ---
 
 ### **GATE 1: Test Case Design**
+
+🚪 **GATE 1: Test Case Design**
+
+Now I'll invoke the Test Case Designer agent:
+
+🧠 **Executing Test Case Designer agent**
+
+---
 
 **HOW TO INVOKE TEST CASE DESIGNER AGENT:**
 
@@ -462,9 +532,41 @@ function shouldExecuteGate0(request: PipelineRequest, cachedHTML: CachedHTML): b
 **Natural Language Instructions:**
 "I will invoke the Test Case Designer agent to convert the user story and acceptance criteria into structured test cases with proper coverage."
 
+**After GATE 1 completes, store learnings in memory:**
+
+```typescript
+// Store test patterns immediately after GATE 1 success
+await mcp_memory_create_entities({
+  entities: [{
+    name: `${metadata.domain}-${metadata.feature}-TestPattern`,
+    entityType: 'TestPattern',
+    observations: [
+      `User story: ${request.userStory}`,
+      `Test cases generated: ${testCases.length}`,
+      `Data-driven: ${dataStrategy ? 'yes' : 'no'}`,
+      `Coverage: ${calculateCoverage(testCases, request.acceptanceCriteria)}%`,
+      `Acceptance criteria count: ${request.acceptanceCriteria.length}`,
+      `Test steps total: ${testCases.reduce((sum, tc) => sum + tc.testSteps.length, 0)}`,
+      `Captured at: GATE 1 completion`,
+      `Timestamp: ${new Date().toISOString()}`
+    ]
+  }]
+})
+
+logger.info('✅ GATE 1 patterns stored in memory')
+```
+
 ---
 
 ### **GATE 2: DOM Element Mapping**
+
+🚪 **GATE 2: DOM Element Mapping**
+
+Now I'll invoke the DOM Analysis agent:
+
+🧠 **Executing DOM Analysis agent**
+
+---
 
 **HOW TO INVOKE DOM ANALYSIS AGENT:**
 
@@ -498,9 +600,42 @@ function shouldExecuteGate0(request: PipelineRequest, cachedHTML: CachedHTML): b
 **Natural Language Instructions:**
 "I will invoke the DOM Analysis agent to map all test actions to robust locator strategies with fallbacks."
 
+**After GATE 2 completes, store learnings in memory:**
+
+```typescript
+// Store locator patterns immediately after GATE 2 success
+await mcp_memory_create_entities({
+  entities: [{
+    name: `${metadata.domain}-${metadata.feature}-LocatorPattern`,
+    entityType: 'LocatorPattern',
+    observations: [
+      `Total elements mapped: ${elementMappings.elementMappings.length}`,
+      `SPA detected: ${elementMappings.isSPA || false}`,
+      `Average confidence score: ${calculateAverageConfidence(elementMappings)}%`,
+      `Special components detected: ${elementMappings.specialComponents?.join(', ') || 'none'}`,
+      ...elementMappings.elementMappings.map(em => 
+        `${em.logicalName}: ${em.locators.primary.type}=${em.locators.primary.value} (confidence: ${em.locators.primary.confidenceScore}%, fallbacks: ${em.locators.fallbacks.length})`
+      ),
+      `Captured at: GATE 2 completion`,
+      `Timestamp: ${new Date().toISOString()}`
+    ]
+  }]
+})
+
+logger.info('✅ GATE 2 patterns stored in memory')
+```
+
 ---
 
 ### **GATE 3: Code Generation**
+
+🚪 **GATE 3: Code Generation**
+
+Now I'll invoke the POM Generator agent:
+
+🧠 **Executing POM Generator agent**
+
+---
 
 **HOW TO INVOKE POM GENERATOR AGENT:**
 
@@ -534,6 +669,33 @@ function shouldExecuteGate0(request: PipelineRequest, cachedHTML: CachedHTML): b
 
 **Natural Language Instructions:**
 "I will invoke the POM Generator agent to create Page Object Model classes and test specifications with self-healing capabilities."
+
+**After GATE 3 completes, store learnings in memory:**
+
+```typescript
+// Store code patterns immediately after GATE 3 success
+await mcp_memory_create_entities({
+  entities: [{
+    name: `${metadata.domain}-${metadata.feature}-CodePattern`,
+    entityType: 'CodePattern',
+    observations: [
+      `Files generated: ${generatedCode.files.length}`,
+      `Page objects: ${generatedCode.pageObjects.length}`,
+      `Test specs: ${generatedCode.testSpecs.length}`,
+      `Test pattern: ${generatedCode.testPattern}`,
+      `Framework: playwright`,
+      `Language: typescript`,
+      `Self-healing enabled: true`,
+      `Component reuse: ${generatedCode.componentsGenerated || 0} components`,
+      `Compilation errors: 0 (all resolved)`,
+      `Captured at: GATE 3 completion`,
+      `Timestamp: ${new Date().toISOString()}`
+    ]
+  }]
+})
+
+logger.info('✅ GATE 3 patterns stored in memory')
+```
 
 ---
 
@@ -638,7 +800,118 @@ async function executeGate4(
   
   return { results, finalStatus };
 }
+```
 
+---
+
+### **Healing Invocation: How to Invoke Test Healing Agent**
+
+**⚠️ NOTE:** Healing is **CONDITIONAL** - only invoked when `decideShouldHeal()` returns true (consecutive failures with same error). Unlike GATE 1/2/3 which are always executed, healing happens **inside the test execution loop** when failure patterns are detected.
+
+🚪 **GATE 4: Test Healing (Conditional)**
+
+Now I'll invoke the Test Healing agent:
+
+🧠 **Executing Test Healing agent**
+
+---
+
+**HOW TO INVOKE TEST HEALING AGENT:**
+
+1. **Detect healing trigger** - When `decideShouldHeal(results)` returns true
+
+2. **Prepare input data** - Extract failure details from current test run:
+   ```json
+   {
+     "failedTest": {
+       "testId": "TC_001",
+       "testFile": "tests/tests-management/gui/{feature}/{testName}.spec.ts",
+       "errorMessage": "{extract from result.stderr}",
+       "errorType": "{classify: TimeoutError|LocatorError|AssertionError|StrictModeError|UnknownError}",
+       "failedStep": "{extract from test output}",
+       "failedLocator": "{extract if locator error}",
+       "screenshot": "{path if available}",
+       "executionLog": "{result.stdout + result.stderr}",
+       "pageObject": "{pageObjectName}"
+     },
+     "executionHistory": results,  // Array of all previous runs
+     "generatedCode": {
+       "pageObjects": ["{path to .page.ts files}"],
+       "testSpecs": ["{path to .spec.ts files}"]
+     },
+     "dataStrategy": dataStrategy,  // Optional, if data-driven
+     "cachedHTML": cachedHTML,       // From PRE-PROCESSING
+     "metadata": {
+       "domain": metadata.domain,
+       "feature": metadata.feature,
+       "url": request.url
+     }
+   }
+   ```
+
+3. **Create empty agent file** to trigger Test Healing Agent:
+   ```
+   create_file('.github/agents/test_healing.agent', '')
+   ```
+
+4. **Wait for agent to complete** - Agent will:
+   - Query memory for known error solutions (Step 0)
+   - Use sequential thinking for root cause analysis (Step 1 - 5 thoughts)
+   - Apply healing strategy (locator fix, timing adjustment, etc.)
+   - Verify healing by re-running test
+   - Store healing patterns in memory (Step 6)
+   - Output self-audit checkpoint (Step 7)
+
+5. **Validate healing output** against schema:
+   - Check `healingResult.healed` (boolean)
+   - Check `healingResult.verificationStatus` ('PASS' | 'FAIL' | 'NOT_VERIFIED')
+   - Check `healingResult.changesApplied[]` (list of modifications)
+   - Check `attemptsUsed` vs `maxAttemptsAllowed` (3 max)
+   - Check `rollbackPerformed` (if healing failed)
+
+6. **Handle healing result**:
+   - If `healed === true && verificationStatus === 'PASS'`: Continue to next test run
+   - If `healed === false` and retry limit not hit: Continue to next test run (may auto-heal on next failure)
+   - If `healed === false` and retry limit hit (3 attempts): Log for manual review, continue execution
+
+7. **Update execution history** - Add healing attempt details:
+   ```json
+   {
+     "runNumber": i,
+     "status": "FAIL",
+     "error": "{original error}",
+     "failedTests": ["{test IDs}"],
+     "healingAttempted": true,
+     "healingResult": {
+       "status": "{SUCCESS|FAILED}",
+       "changes": "{summary of modifications}"
+     }
+   }
+   ```
+
+8. **Continue test execution loop** - Proceed to next run (healing may have fixed the issue)
+
+**Natural Language Instructions:**
+"I will invoke the Test Healing agent to analyze the test failure. The agent will query memory for known solutions, use sequential thinking to identify the root cause, apply corrective actions, verify the fix by re-running the test, and store healing patterns for future learning. If healing succeeds, the test will pass on the next run."
+
+**Example Todo List Update (if healing triggered):**
+```json
+{
+  "operation": "write",
+  "todoList": [
+    {
+      "id": 6,
+      "title": "GATE 4: Test Execution & Healing",
+      "description": "In progress: Run 2/3 failed with TimeoutError, triggered Test Healing agent, healing successful - applied wait strategy",
+      "status": "in-progress"
+    }
+  ]
+}
+```
+
+---
+
+```typescript
 // Healing decision engine
 function decideShouldHeal(results: TestRunState[]): boolean {
   // Need at least 2 runs to detect pattern
@@ -665,67 +938,29 @@ function decideShouldHeal(results: TestRunState[]): boolean {
 
 ### **GATE 5: Learning & Knowledge Storage**
 
+**NOTE:** GATE 5 stores the **comprehensive execution summary**. Individual gate patterns were already stored incrementally after GATE 1, 2, and 3 completed.
+
 ```typescript
 async function executeGate5(
   allGateOutputs: Record<number, any>,
   metadata: Metadata,
   request: PipelineRequest
 ): Promise<void> {
-  logger.info('🚪 GATE 5: Learning & Knowledge Storage Phase');
+  logger.info('🚪 GATE 5: Comprehensive Learning & Execution History Storage');
   
-  // Aggregate learnings from all gates
+  // NOTE: TestPattern, LocatorPattern, CodePattern already stored at respective gates
+  // GATE 5 stores the comprehensive ExecutionHistory entity summarizing the entire pipeline
+  
   const learnings = [
-    // From Test Designer (GATE 1)
+    // Comprehensive Execution History (MANDATORY - summarizes entire pipeline)
     {
-      name: `${metadata.domain}-${metadata.feature}-TestPatterns`,
-      entityType: 'TestPattern',
-      observations: [
-        `User story: ${request.userStory}`,
-        `Test cases generated: ${allGateOutputs[1].testCases.length}`,
-        `Data-driven: ${allGateOutputs[0] ? 'yes' : 'no'}`,
-        `Coverage: ${calculateCoverage(allGateOutputs[1], request.acceptanceCriteria)}%`,
-        `Acceptance criteria count: ${request.acceptanceCriteria.length}`,
-        `Test pattern: ${allGateOutputs[3].testPattern || 'standard'}`,
-        `Timestamp: ${new Date().toISOString()}`
-      ]
-    },
-    // From DOM Agent (GATE 2)
-    {
-      name: `${metadata.domain}-${metadata.feature}-LocatorPatterns`,
-      entityType: 'LocatorPattern',
-      observations: [
-        `Total elements mapped: ${allGateOutputs[2].elementMappings.length}`,
-        `SPA detected: ${allGateOutputs[2].isSPA || false}`,
-        ...allGateOutputs[2].elementMappings.map(em => 
-          `${em.logicalName}: ${em.locators.primary.type}=${em.locators.primary.value} (confidence: ${em.locators.primary.confidenceScore}, fallbacks: ${em.locators.fallbacks.length})`
-        ),
-        `Timestamp: ${new Date().toISOString()}`
-      ]
-    },
-    // From POM Agent (GATE 3)
-    {
-      name: `${metadata.domain}-${metadata.feature}-CodePatterns`,
-      entityType: 'CodePattern',
-      observations: [
-        `Files generated: ${allGateOutputs[3].files.length}`,
-        `Page objects: ${allGateOutputs[3].pageObjects.length}`,
-        `Test specs: ${allGateOutputs[3].testSpecs.length}`,
-        `Test pattern: ${allGateOutputs[3].testPattern}`,
-        `Framework: playwright`,
-        `Language: typescript`,
-        `Self-healing enabled: true`,
-        `Component reuse: ${allGateOutputs[3].componentsGenerated || 0} components`,
-        `Compilation errors: 0 (all resolved)`,
-        `Timestamp: ${new Date().toISOString()}`
-      ]
-    },
-    // From Execution (GATE 4)
-    {
-      name: `${metadata.domain}-${metadata.feature}-ExecutionHistory`,
+      name: `${metadata.domain}-${metadata.feature}-ExecutionHistory-${metadata.requestId}`,
       entityType: 'ExecutionHistory',
       observations: [
         `Request ID: ${metadata.requestId}`,
         `URL: ${request.url}`,
+        `User story: ${request.userStory}`,
+        `Test cases generated: ${allGateOutputs[1]?.testCases.length || 0}`,
         `Total test runs: ${allGateOutputs[4].results.length}`,
         `Pass rate: ${allGateOutputs[4].finalStatus.passRate}%`,
         `Failed tests: ${allGateOutputs[4].finalStatus.failedTests || 0}`,
@@ -734,6 +969,9 @@ async function executeGate5(
         `Average execution time: ${allGateOutputs[4].finalStatus.avgExecutionTime || 0}ms`,
         `Browsers tested: ${request.constraints?.browsers?.join(', ') || 'chromium'}`,
         `Data sets executed: ${allGateOutputs[0]?.totalCases || 1}`,
+        `Coverage: ${calculateCoverage(allGateOutputs[1], request.acceptanceCriteria)}%`,
+        `Elements mapped: ${allGateOutputs[2]?.elementMappings.length || 0}`,
+        `Page objects generated: ${allGateOutputs[3]?.pageObjects.length || 0}`,
         `All gate results: ${JSON.stringify({
           gate0: allGateOutputs[0] ? 'SUCCESS' : 'SKIPPED',
           gate1: allGateOutputs[1] ? 'SUCCESS' : 'FAILED',
@@ -746,21 +984,19 @@ async function executeGate5(
     }
   ];
   
-  // If healing was triggered, store healing patterns
+  // If healing was triggered, add summary reference (detailed patterns already stored by Test Healing agent)
   if (allGateOutputs[4].results.some(r => r.healingAttempted)) {
-    learnings.push({
-      name: `${metadata.domain}-${metadata.feature}-HealingPatterns`,
-      entityType: 'ErrorSolution',
-      observations: allGateOutputs[4].results
-        .filter(r => r.healingAttempted)
-        .map(r => `Healing attempt ${r.runNumber}: ${r.healingResult?.status || 'UNKNOWN'} - ${r.healingResult?.changes || 'No details'}`)
-    });
+    const healingAttempts = allGateOutputs[4].results.filter(r => r.healingAttempted);
+    learnings[0].observations.push(
+      `Healing attempts: ${healingAttempts.length}`,
+      `Healing details: See ${metadata.domain}-{errorSignature}-ErrorSolution entities stored by Test Healing agent`
+    );
   }
   
   // Store in memory
   await mcp_memory_create_entities({ entities: learnings });
   
-  logger.info(`✅ GATE 5 Complete: ${learnings.length} knowledge entities stored`);
+  logger.info(`✅ GATE 5 Complete: Stored comprehensive ExecutionHistory (individual gate patterns already saved at GATE 1, 2, 3)`);
   
   // Update todo list
   await manage_todo_list({
@@ -770,7 +1006,7 @@ async function executeGate5(
       {
         id: gate0Required ? 7 : 6,
         title: 'GATE 5: Learning & Knowledge Storage',
-        description: `✅ Completed: Stored ${learnings.length} knowledge entities (TestPatterns, LocatorPatterns, CodePatterns, ExecutionHistory${learnings.length > 4 ? ', HealingPatterns' : ''})`,
+        description: `✅ Completed: Stored comprehensive ExecutionHistory (individual gate patterns already saved at GATE 1, 2, 3)`,
         status: 'completed'
       },
       {

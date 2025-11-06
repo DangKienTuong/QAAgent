@@ -125,7 +125,7 @@ interface TestHealingOutput {
 
 ### **STEP 0: Query Memory for Known Error Solutions (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.5 for complete details.
+**📖 REFERENCE:** See `memory_patterns_reference.instructions.md` Section "Test Healing Agent" for standardized query patterns. See `mcp_integration_guide.instructions.md` Section 2 for complete MCP tool details.
 
 **Purpose:** Query knowledge base for previously encountered errors and successful healing strategies before attempting repair.
 
@@ -139,18 +139,19 @@ logger.info('🔍 STEP 0: Querying memory for known error solutions')
 // Extract error signature for precise matching
 const errorSignature = extractErrorSignature(input.failedTest.errorMessage)
 
-// Query 1: Specific error type and signature
-const errorSolutions = await mcp_memory_search_nodes({
-  query: `${input.failedTest.errorType} ${errorSignature} healing solution`
-})
-
-// Query 2: Domain-specific error patterns
+// Query 1: Domain-specific error solutions
 const domain = input.metadata.domain
-const domainErrors = await mcp_memory_search_nodes({
-  query: `${domain} ${input.failedTest.errorType} solution patterns`
+const errorSolutions = await mcp_memory_search_nodes({
+  query: `${domain} ${input.failedTest.errorType} error solutions`
 })
 
-// Query 3: General healing strategies for this error type
+// Query 2: Feature-specific healing patterns
+const feature = input.metadata.feature
+const healingPatterns = await mcp_memory_search_nodes({
+  query: `${domain} ${feature} healing patterns`
+})
+
+// Query 3: General healing strategies for this error type (fallback)
 const generalStrategies = await mcp_memory_search_nodes({
   query: `${input.failedTest.errorType} healing strategies`
 })
@@ -198,9 +199,51 @@ if (domainErrors.entities.length > 0) {
 
 ---
 
+### **STEP 0B: Load Previous Gate Output (CONDITIONAL)**
+
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete implementation pattern.
+
+**Purpose:** Load generated code from GATE 3 to understand test structure when applying healing fixes.
+
+**When:** After Step 0A (memory queries). This helps identify which files to modify.
+
+**Execution:**
+
+```typescript
+logger.info('📂 STEP 0B: Loading previous gate output (if available)')
+
+const domain = input.metadata?.domain
+const feature = input.metadata?.feature
+
+if (domain && feature) {
+  const gate3File = `.state/${domain}-${feature}-gate3-output.json`
+  
+  try {
+    const fileContent = await read_file(gate3File, 1, 10000)
+    const gate3State = JSON.parse(fileContent)
+    
+    if (gate3State.status === 'SUCCESS' || gate3State.status === 'PARTIAL') {
+      const generatedCode = gate3State.output
+      logger.info(`✅ Loaded GATE 3 output: ${generatedCode.files.length} files generated`)
+      logger.info(`   Page objects: ${generatedCode.pageObjects.join(', ')}`)
+      logger.info(`   Test specs: ${generatedCode.testSpecs.join(', ')}`)
+      
+      // Use this information to target healing fixes
+      codeContextFromState = generatedCode
+    }
+  } catch (error) {
+    logger.info('ℹ️ No GATE 3 output found - will use input.generatedCode directly')
+  }
+} else {
+  logger.info('ℹ️ No metadata provided - using input from orchestration')
+}
+```
+
+---
+
 ### **Step 1: Use Sequential Thinking for Root Cause Analysis (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 1 for complete parameter details.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 1 for complete parameter details.
 
 **Purpose:** Systematically analyze failure using structured reasoning.
 
@@ -618,9 +661,65 @@ function shouldAttemptHealing(
 
 ---
 
-### **Step 6: Store Healing Patterns in Memory (MANDATORY)**
+### **Step 6A: Write State File (CONDITIONAL)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.5 for complete details.
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete schema details.
+
+**Purpose:** Persist healing results if this is part of a pipeline execution (has requestId).
+
+**When:** After healing attempt, if requestId is provided, BEFORE memory storage.
+
+**Note:** Test Healing can be invoked standalone (no requestId) or as part of GATE 4 pipeline execution (has requestId). Only create state file if part of pipeline.
+
+**Execution:**
+
+```typescript
+const domain = input.metadata?.domain
+const feature = input.metadata?.feature
+
+if (domain && feature) {
+  logger.info('📝 STEP 6A: Writing healing results to state file')
+  
+  const gateStateFile = {
+    gate: 4,  // Healing is part of GATE 4 execution
+    agent: 'TestHealingAgent',
+    status: output.healed ? 'SUCCESS' : 'PARTIAL',
+    metadata: {
+      domain: input.metadata.domain,
+      feature: input.metadata.feature,
+      url: input.metadata.url
+    },
+    output: {
+      healed: output.healed,
+      changesApplied: output.changesApplied,
+      verificationStatus: output.verificationStatus,
+      healingStrategy: output.healingStrategy,
+      attemptsUsed: output.attemptsUsed,
+      rollbackPerformed: output.rollbackPerformed
+    },
+    validation: {
+      score: output.healed && output.verificationStatus === 'PASS' ? 100 : 50,
+      issues: output.healed ? [] : ['Healing unsuccessful'],
+      passed: output.healed && output.verificationStatus === 'PASS'
+    }
+  }
+  
+  await create_file(
+    `.state/${domain}-${feature}-gate4-healing.json`,
+    JSON.stringify(gateStateFile, null, 2)
+  )
+  
+  logger.info(`✅ Healing state file created: .state/${domain}-${feature}-gate4-healing.json`)
+} else {
+  logger.info('ℹ️ No metadata - skipping state file creation (standalone healing mode)')
+}
+```
+
+---
+
+### **Step 6B: Store Healing Patterns in Memory (MANDATORY)**
+
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 2.5 for complete details.
 
 **Purpose:** Store healing attempts, successes, and failures for future learning and pattern recognition.
 
@@ -629,7 +728,7 @@ function shouldAttemptHealing(
 **Execution:**
 
 ```typescript
-logger.info('💾 STEP 6: Storing healing patterns in memory')
+logger.info('💾 STEP 6B: Storing healing patterns in memory')
 
 const entitiesToStore = []
 
@@ -653,7 +752,7 @@ entitiesToStore.push({
     `Execution history pattern: ${analyzeExecutionPattern(input.executionHistory)}`,
     `Domain: ${input.metadata.domain}`,
     `Feature: ${input.metadata.feature}`,
-    `Verified: ${new Date().toISOString()}`
+    `Captured at: Healing attempt ${healingResult.attemptsUsed}`
   ]
 })
 
@@ -673,7 +772,7 @@ if (healingResult.healed && healingResult.changesApplied.length > 0) {
         `Rationale: ${change.rationale}`,
         `Success: ${healingResult.verificationStatus === 'PASS'}`,
         `Strategy: ${healingResult.strategy}`,
-        `Verified: ${new Date().toISOString()}`
+        `Captured at: Change ${idx + 1} of ${healingResult.changesApplied.length}`
       ]
     })
   })
@@ -694,7 +793,7 @@ if (!healingResult.healed && failCount >= MAX_HEALING_ATTEMPTS) {
       `Failed test: ${input.failedTest.testId}`,
       `Failed step: ${input.failedTest.failedStep}`,
       `Domain: ${input.metadata.domain}`,
-      `Flagged: ${new Date().toISOString()}`
+      `Flagged for manual review: After ${failCount} attempts`
     ]
   })
 }
@@ -716,7 +815,7 @@ logger.info(`✅ Stored ${entitiesToStore.length} healing patterns in memory (${
 
 ### **Step 7: Self-Audit Checkpoint (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section "Enforcement Rules" for checkpoint template.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section "Enforcement Rules" for checkpoint template.
 
 **Purpose:** Verify all required MCPs were executed correctly.
 
@@ -729,9 +828,15 @@ logger.info('🔍 STEP 7: Self-audit checkpoint')
 
 const missingSteps = []
 
-// Check Step 0
+// Check Step 0A
 if (!executedMemorySearch) {
-  missingSteps.push('mcp_memory_search_nodes (Step 0)')
+  missingSteps.push('mcp_memory_search_nodes (Step 0A)')
+}
+
+// Check Step 0B (conditional)
+const hasRequestId = input.metadata?.requestId
+if (hasRequestId && !attemptedLoadPreviousGate) {
+  missingSteps.push('Load GATE 3 output (Step 0B)')
 }
 
 // Check Step 1 (always required for this agent)
@@ -739,9 +844,14 @@ if (!executedSequentialThinking) {
   missingSteps.push('mcp_sequential-th_sequentialthinking (Step 1)')
 }
 
-// Check Step 6
+// Check Step 6A (conditional - only if requestId present)
+if (hasRequestId && !createdStateFile) {
+  missingSteps.push('create_file for state output (Step 6A)')
+}
+
+// Check Step 6B
 if (!executedMemoryStore) {
-  missingSteps.push('mcp_memory_create_entities (Step 6)')
+  missingSteps.push('mcp_memory_create_entities (Step 6B)')
 }
 
 // Calculate quality metrics
@@ -757,10 +867,12 @@ const rootCauseIdentified = healingResult.rootCause !== 'Unknown'
 **✅ CHECKPOINT: Test Healing Complete**
 
 Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried error solutions for {errorType}
-✅ mcp_sequential-th_sequentialthinking - Analyzed root cause (5 thoughts)
-✅ Main execution - Applied healing strategy ({strategy})
-✅ mcp_memory_create_entities - Stored {patternCount} patterns
+✅ mcp_memory_search_nodes - Queried error solutions for {errorType} (Step 0A)
+${hasRequestId ? '✅ Load GATE 3 output - Attempted to load generated code context (Step 0B)' : '⏭️ Skip GATE 3 load - Standalone healing mode (no requestId)'}
+✅ mcp_sequential-th_sequentialthinking - Analyzed root cause (5 thoughts) (Step 1)
+✅ Main execution - Applied healing strategy ({strategy}) (Steps 2-5)
+${hasRequestId ? '✅ create_file - Wrote healing state file .state/{requestId}-gate4-healing-{timestamp}.json (Step 6A)' : '⏭️ Skip state file - Standalone mode'}
+✅ mcp_memory_create_entities - Stored {patternCount} patterns (Step 6B)
 
 MISSING STEPS: ${missingSteps.length > 0 ? missingSteps.join(', ') : 'None'}
 
@@ -1008,7 +1120,7 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 
 **Penalty for violation:** Tool call will fail or produce incomplete results.
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for complete parameter specifications for each tool.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
 
 ---
 
@@ -1047,4 +1159,4 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 - `ErrorSolution` (changes) - Specific code modifications (if successful)
 - `ErrorSolution` (unresolved) - Failures hitting retry limit
 
-**For complete details:** See `MCP_INTEGRATION_GUIDE.md`
+**For complete details:** See `mcp_integration_guide.instructions.md`

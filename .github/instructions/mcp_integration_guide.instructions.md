@@ -1,3 +1,8 @@
+---
+applyTo: '**/*.agent,**'
+description: 'MCP Tools Integration Guide - Detailed Parameter Reference - Version 2.0'
+---
+
 # MCP Tools Integration Guide - Detailed Parameter Reference
 
 ## 🎯 Purpose
@@ -252,8 +257,8 @@ await mcp_memory_create_entities({
         "Coverage: 100% of acceptance criteria",
         `Fields tested: firstName, lastName, email, phone, password`,
         "Boundary tests: email format validation, phone length",
-        `Generated: ${new Date().toISOString()}`,
-        "Test IDs: TC_001 through TC_005"
+        "Test IDs: TC_001 through TC_005",
+        "Captured at: GATE 1 completion"
       ]
     },
     {
@@ -284,10 +289,10 @@ await mcp_memory_create_entities({
         "HTML tag: input",
         "Primary locator: #firstName (ID, confidence: 0.95)",
         "Fallback1: [placeholder='First Name'] (attribute, confidence: 0.85)",
-        "Fallback2: input[name='firstName'] (name attribute, confidence: 0.80)",
+        `Fallback2: input[name='firstName'] (name attribute, confidence: 0.80)`,
         "Uniqueness: High (ID is unique in DOM)",
         "Stability: High (ID unlikely to change)",
-        `Verified: ${new Date().toISOString()}`
+        "Captured at: GATE 2 element mapping"
       ]
     },
     {
@@ -301,7 +306,7 @@ await mcp_memory_create_entities({
         "Options appear in: .css-26l3qy-menu > div.option",
         "Working example: await click(#state); await fillAndEnter(#react-select-3-input, 'NCR')",
         "Common error: Clicking option directly fails - must type and Enter",
-        `Discovered: ${new Date().toISOString()}`
+        "Captured at: GATE 2 component discovery"
       ]
     }
   ]
@@ -323,7 +328,7 @@ await mcp_memory_create_entities({
         "Special components handled: react-select (state, city)",
         "Fixture registered: registerPage in pageFixture.ts",
         "Test pattern: forEach (5 test cases)",
-        `Generated: ${new Date().toISOString()}`
+        "Captured at: GATE 3 code generation"
       ]
     },
     {
@@ -356,7 +361,7 @@ await mcp_memory_create_entities({
         "Solution: Updated loginPage.ts locator from #login to #loginButton",
         "Verification: Test passed after fix",
         "Pattern: DemoQA uses 'Button' suffix for button IDs",
-        `Healed: ${new Date().toISOString()}`,
+        "Captured at: Healing completion",
         "Healing attempts: 1 (immediate success)"
       ]
     },
@@ -396,7 +401,7 @@ await mcp_memory_create_entities({
         "GATE 4: Execution (3 runs, pass rate 100%)",
         "GATE 5: Learning (stored 12 patterns)",
         "Deliverables: registerPage.ts, register.spec.ts, test-data.json",
-        `Completed: ${new Date().toISOString()}`
+        "Captured at: Pipeline completion"
       ]
     }
   ]
@@ -426,7 +431,7 @@ await mcp_memory_add_observations({
       contents: [
         "Alternative interaction: Can also use keyboard navigation (ArrowDown + Enter)",
         "Performance: wait 500ms may not be needed for fast connections",
-        `Updated: ${new Date().toISOString()}`
+        "Captured at: Pattern refinement"
       ]
     }
   ]
@@ -699,6 +704,3 @@ if (status1 === 'FAIL' && status2 === 'FAIL') {
 
 **Penalty for violation:** Agent execution is incomplete and must be restarted.
 
----
-
-**This guide ensures consistent, comprehensive MCP integration across all agents.** 🚀

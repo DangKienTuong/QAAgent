@@ -103,11 +103,11 @@ interface DOMAnalysisOutput {
 
 ## ⚙️ Execution Workflow
 
-### **STEP 0: Query Memory for Existing Patterns (MANDATORY)**
+### **STEP 0: Query Memory for Known Locators (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.1 for complete details.
+**📖 REFERENCE:** See `memory_patterns_reference.instructions.md` Section "DOM Analysis Agent" for standardized query patterns. See `mcp_integration_guide.instructions.md` Section 2 for complete MCP tool details.
 
-**Purpose:** Query knowledge base for existing locator patterns and component interaction strategies before analyzing DOM.
+**Purpose:** Query knowledge base for existing locator strategies and component interaction patterns before analyzing DOM.
 
 **When:** ALWAYS as the very first step.
 
@@ -116,21 +116,26 @@ interface DOMAnalysisOutput {
 ```typescript
 logger.info('🔍 STEP 0: Querying memory for existing DOM patterns')
 
-// Query 1: Domain-specific locator patterns
+// Query 1: Domain and feature-specific locator patterns
 const domain = input.metadata?.domain || extractDomain(input.url)
+const feature = input.metadata?.feature || 'default'
 const locatorPatterns = await mcp_memory_search_nodes({
-  query: `${domain} locator patterns`
+  query: `${domain} ${feature} locator patterns`
 })
 
-// Query 2: Component-specific patterns
-const componentPatterns = await mcp_memory_search_nodes({
-  query: `react-select dropdown interaction patterns`
-})
+// Query 2: Component-specific patterns (generic across domain)
+// Note: Component patterns are searched with domain + component type for better precision
+const componentType = detectSpecialComponents(input.cachedHTML) // e.g., 'react-select', 'react-datepicker'
+if (componentType) {
+  const componentPatterns = await mcp_memory_search_nodes({
+    query: `${domain} ${componentType} interaction patterns`
+  })
+}
 
 // Query 3: SPA-specific patterns (if SPA detected)
 if (input.isSPA) {
   const spaPatterns = await mcp_memory_search_nodes({
-    query: `${domain} SPA dynamic element patterns`
+    query: `${domain} ${feature} SPA dynamic element patterns`
   })
 }
 
@@ -160,9 +165,68 @@ if (locatorPatterns.entities.length > 0) {
 
 ---
 
+### **STEP 0B: Load Previous Gate Output (MANDATORY)**
+
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete implementation pattern.
+
+**Purpose:** Load test cases from GATE 1 output to determine which elements need mapping.
+
+**When:** ALWAYS after Step 0A (memory queries).
+
+**Execution:**
+
+```typescript
+logger.info('📂 STEP 0B: Loading previous gate output from GATE 1')
+
+const domain = input.metadata?.domain
+const feature = input.metadata?.feature
+
+if (!domain || !feature) {
+  throw new Error('domain and feature metadata are required for GATE 2 execution')
+}
+
+const gate1File = `.state/${domain}-${feature}-gate1-output.json`
+
+try {
+  const fileContent = await read_file(gate1File, 1, 10000)
+  const gate1State = JSON.parse(fileContent)
+  
+  if (gate1State.status === 'SUCCESS' || gate1State.status === 'PARTIAL') {
+    const testCases = gate1State.output.testCases
+    logger.info(`✅ Loaded GATE 1 output: ${testCases.length} test cases`)
+    
+    // Extract all unique element targets from test steps
+    const allTargets = new Set()
+    testCases.forEach(tc => {
+      tc.testSteps.forEach(step => {
+        if (step.target) {
+          allTargets.add(step.target)
+        }
+      })
+    })
+    
+    logger.info(`   Elements to map: ${allTargets.size} unique targets`)
+    
+      logger.warn(`⚠️ GATE 1 output is stale (${Math.round(ageMs / 60000)} minutes old)`)
+    }
+    
+    // Use test cases from state file
+    testCasesFromState = testCases
+  } else {
+    throw new Error(`GATE 1 status is ${gate1State.status} - cannot proceed`)
+  }
+  
+} catch (error) {
+  logger.error(`❌ Failed to load GATE 1 output: ${error.message}`)
+  throw new Error('Cannot execute GATE 2 without GATE 1 output')
+}
+```
+
+---
+
 ### **STEP 0.5: Plan DOM Analysis Strategy (MANDATORY if 3+ test steps)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 1 for complete parameter details.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 1 for complete parameter details.
 
 **Purpose:** Plan approach for DOM analysis using structured reasoning.
 
@@ -613,9 +677,53 @@ logger.info(validationPassed ? '✅ Validation PASSED' : '⚠️ Validation PART
 
 ---
 
-### **STEP 8: Store Patterns in Memory (MANDATORY)**
+### **STEP 8A: Write State File (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.2 for complete details.
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete schema details.
+
+**Purpose:** Persist element mappings to structured JSON file for GATE 3 (POM Generator).
+
+**When:** ALWAYS after successful DOM analysis, BEFORE memory storage.
+
+**Execution:**
+
+```typescript
+logger.info('📝 STEP 8A: Writing gate output to state file')
+
+const gateStateFile = {
+  gate: 2,
+  agent: 'DOMAgent',
+  status: output.validationResult.score >= 70 ? 'SUCCESS' : 'PARTIAL',
+  metadata: {
+    domain: input.metadata.domain,
+    feature: input.metadata.feature,
+    url: input.url
+  },
+  output: output,  // Complete ElementMappings object
+  validation: {
+    score: output.validationResult.score,
+    issues: output.validationResult.issues,
+    passed: output.validationResult.score >= 70
+  }
+}
+
+await create_file(
+  `.state/${input.metadata.domain}-${input.metadata.feature}-gate2-output.json`,
+  JSON.stringify(gateStateFile, null, 2)
+)
+
+logger.info(`✅ State file created: .state/${input.metadata.domain}-${input.metadata.feature}-gate2-output.json`)
+```
+
+logger.info(`✅ State file created: .state/${input.metadata.requestId}-gate2-output.json`)
+logger.info(`   Status: ${gateStateFile.status}, Score: ${gateStateFile.validation.score}%`)
+```
+
+---
+
+### **STEP 8B: Store Patterns in Memory (MANDATORY)**
+
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 2.2 for complete details.
 
 **Purpose:** Store discovered locator patterns and component patterns for future reuse.
 
@@ -624,7 +732,7 @@ logger.info(validationPassed ? '✅ Validation PASSED' : '⚠️ Validation PART
 **Execution:**
 
 ```typescript
-logger.info('💾 STEP 8: Storing patterns in memory')
+logger.info('💾 STEP 8B: Storing patterns in memory')
 
 const entitiesToStore = []
 
@@ -643,7 +751,7 @@ mappings.forEach(mapping => {
         `Fallback1: ${mapping.locators.fallback1.type}=${mapping.locators.fallback1.value}`,
         `Fallback2: ${mapping.locators.fallback2.type}=${mapping.locators.fallback2.value}`,
         `HTML tag: ${mapping.htmlElement.tag}`,
-        `Verified: ${new Date().toISOString()}`
+        `Captured at: GATE 2 element mapping`
       ]
     })
   }
@@ -667,7 +775,7 @@ if (specialComponents.length > 0) {
           `${key}: ${val}`
         ),
         `Domain: ${domain}`,
-        `Verified: ${new Date().toISOString()}`
+        `Captured at: GATE 2 component analysis`
       ]
     })
   })
@@ -690,7 +798,7 @@ logger.info(`✅ Stored ${entitiesToStore.length} patterns in memory (${mappings
 
 ### **STEP 9: Self-Audit Checkpoint (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section "Enforcement Rules" for checkpoint template.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section "Enforcement Rules" for checkpoint template.
 
 **Purpose:** Verify all required MCPs were executed correctly.
 
@@ -703,9 +811,14 @@ logger.info('🔍 STEP 9: Self-audit checkpoint')
 
 const missingSteps = []
 
-// Check Step 0
+// Check Step 0A
 if (!executedMemorySearch) {
-  missingSteps.push('mcp_memory_search_nodes (Step 0)')
+  missingSteps.push('mcp_memory_search_nodes (Step 0A)')
+}
+
+// Check Step 0B (mandatory for GATE 2)
+if (!loadedGate1Output) {
+  missingSteps.push('Load GATE 1 output (Step 0B)')
 }
 
 // Check Step 0.5 (conditional)
@@ -714,9 +827,14 @@ if (testSteps.length >= 3 && !executedSequentialThinking) {
   missingSteps.push('mcp_sequential-th_sequentialthinking (Step 0.5)')
 }
 
-// Check Step 8
+// Check Step 8A
+if (!createdStateFile) {
+  missingSteps.push('create_file for state output (Step 8A)')
+}
+
+// Check Step 8B
 if (!executedMemoryStore) {
-  missingSteps.push('mcp_memory_create_entities (Step 8)')
+  missingSteps.push('mcp_memory_create_entities (Step 8B)')
 }
 
 // Calculate quality metrics
@@ -735,20 +853,22 @@ const lowConfidenceCount = mappings.filter(m =>
 **✅ CHECKPOINT: DOM Analysis Complete**
 
 Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried locator patterns for demoqa.com
-✅ mcp_sequential-th_sequentialthinking - Planned approach (4 thoughts)
-✅ Main execution - Mapped 8 elements
-✅ mcp_memory_create_entities - Stored 10 patterns (8 locators + 2 components)
+✅ mcp_memory_search_nodes - Queried locator patterns for {domain} (Step 0A)
+✅ Load GATE 1 output - Loaded {testCaseCount} test cases from .state/{requestId}-gate1-output.json (Step 0B)
+✅ mcp_sequential-th_sequentialthinking - Planned approach (4 thoughts) (Step 0.5, conditional)
+✅ Main execution - Mapped {elementCount} elements (Steps 1-7)
+✅ create_file - Wrote state file .state/{requestId}-gate2-output.json (Step 8A)
+✅ mcp_memory_create_entities - Stored {patternCount} patterns (Step 8B)
 
-MISSING STEPS: None
+MISSING STEPS: ${missingSteps.length > 0 ? missingSteps.join(', ') : 'None'}
 
 QUALITY METRICS:
-- Elements mapped: 8/8 (100%)
-- Average confidence: 0.89
-- Low confidence elements (< 0.70): 0
-- Special components detected: 2 (react-select state dropdown, react-datepicker DOB)
+- Elements mapped: {elementCount}/{totalTargets} ({percentage}%)
+- Average confidence: {avgConfidence}
+- Low confidence elements (< 0.70): {lowConfCount}
+- Special components detected: {specialCount} ({componentNames})
 
-ACTION: SUCCESS - All MCPs completed, proceeding to return output
+ACTION: ${missingSteps.length > 0 ? 'ERROR - Going back to complete missing steps' : 'SUCCESS - All MCPs completed, proceeding to return output'}
 ```
 
 ---
@@ -1054,7 +1174,7 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 
 **Penalty for violation:** Tool call will fail or produce incomplete results.
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for complete parameter specifications for each tool.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
 
 ---
 
@@ -1081,5 +1201,5 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 | `mcp_sequential-th_sequentialthinking` | `thought`, `thoughtNumber`, `totalThoughts`, `nextThoughtNeeded` | `isRevision`, `revisesThought`, `branchFromThought`, `branchId`, `needsMoreThoughts` |
 | `mcp_memory_create_entities` | `entities[]` with `name`, `entityType`, `observations[]` | - |
 
-**For complete details:** See `MCP_INTEGRATION_GUIDE.md`
+**For complete details:** See `mcp_integration_guide.instructions.md`
 

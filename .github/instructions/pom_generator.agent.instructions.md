@@ -143,11 +143,41 @@ interface POMGeneratorOutput {
 
 ## ⚙️ Execution Workflow
 
-### **STEP 0: Query Memory for Existing Patterns (MANDATORY)**
+### **⚠️ CRITICAL: Sequential Thinking is ALWAYS MANDATORY**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.3 for complete details.
+**Why POM Generation Always Requires Sequential Thinking:**
 
-**Purpose:** Query knowledge base for existing page object patterns, code generation strategies, and self-healing wrapper patterns before generating code.
+POM generation is a **10-step process** (Steps 0-10), which far exceeds the global 3-step threshold requiring sequential thinking:
+
+1. **Step 0:** Query memory for patterns
+2. **Step 1:** Plan strategy with sequential thinking ← **MANDATORY**
+3. **Step 2:** Analyze input and select test pattern
+4. **Step 3:** Generate page object classes
+5. **Step 4:** Register in fixture
+6. **Step 5:** Generate test specs
+7. **Step 6:** Handle special components
+8. **Step 7:** Validate compilation
+9. **Step 8:** Rollback on failure
+10. **Step 9:** Store patterns in memory
+11. **Step 10:** Self-audit checkpoint
+
+**Complexity Factors:**
+- Multi-file generation (page objects + test specs + fixtures)
+- Self-healing locator strategies (primary + 2 fallbacks)
+- Special component handling (react-select, datepickers, etc.)
+- TypeScript compilation validation
+- Fixture registration without conflicts
+- Pattern storage for future reuse
+
+**Conclusion:** There is NO scenario where POM generation is simple enough to skip sequential thinking. The "if 3+ page objects" condition from the previous version was incorrect and has been removed. Sequential thinking is now MANDATORY for ALL POM generation tasks.
+
+---
+
+### **STEP 0: Query Memory for Code Patterns (MANDATORY)**
+
+**📖 REFERENCE:** See `memory_patterns_reference.instructions.md` Section "POM Generator Agent" for standardized query patterns. See `mcp_integration_guide.instructions.md` Section 2 for complete MCP tool details.
+
+**Purpose:** Query knowledge base for existing page object patterns, self-healing wrappers, and component code before generating code.
 
 **When:** ALWAYS as the very first step.
 
@@ -156,27 +186,31 @@ interface POMGeneratorOutput {
 ```typescript
 logger.info('🔍 STEP 0: Querying memory for existing code patterns')
 
-// Query 1: Feature-specific page object patterns
+// Query 1: Domain and feature-specific code patterns
+const domain = input.metadata.domain
 const feature = input.metadata.feature
-const pageObjectPatterns = await mcp_memory_search_nodes({
-  query: `${feature} page object patterns`
+const codePatterns = await mcp_memory_search_nodes({
+  query: `${domain} ${feature} code patterns`
 })
 
-// Query 2: Self-healing wrapper patterns
+// Query 2: Self-healing wrapper patterns (generic across domains)
 const wrapperPatterns = await mcp_memory_search_nodes({
-  query: `self-healing wrapper patterns`
+  query: `playwright self-healing wrapper patterns`
 })
 
-// Query 3: Special component handling patterns
-const componentPatterns = await mcp_memory_search_nodes({
-  query: `react-select datepicker component code patterns`
-})
+// Query 3: Special component handling patterns (domain-specific if possible)
+const componentType = detectSpecialComponents(input.elementMappings) // e.g., 'react-select', 'react-datepicker'
+if (componentType) {
+  const componentPatterns = await mcp_memory_search_nodes({
+    query: `${domain} ${componentType} component code patterns`
+  })
+}
 
 // Process results
-if (pageObjectPatterns.entities.length > 0) {
-  logger.info(`✅ Found ${pageObjectPatterns.entities.length} existing page object patterns`)
+if (codePatterns.entities.length > 0) {
+  logger.info(`✅ Found ${codePatterns.entities.length} existing code patterns`)
   
-  pageObjectPatterns.entities.forEach(entity => {
+  codePatterns.entities.forEach(entity => {
     logger.info(`Pattern: ${entity.name}`)
     entity.observations.forEach(obs => logger.info(`  - ${obs}`))
     
@@ -209,61 +243,124 @@ if (wrapperPatterns.entities.length > 0) {
 
 ---
 
-### **STEP 0.5: Plan Code Generation Strategy (MANDATORY if 3+ page objects)**
+### **STEP 0B: Load Previous Gate Output (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 1 for complete parameter details.
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete implementation pattern.
 
-**Purpose:** Plan approach for code generation using structured reasoning.
+**Purpose:** Load element mappings from GATE 2 output to determine which page object methods to generate.
 
-**When:** IF input will generate 3 or more page object files.
+**When:** ALWAYS after Step 0A (memory queries).
 
-**Execution (3-Thought Sequence):**
+**Execution:**
 
 ```typescript
-// Count page objects to generate
-const pageObjectCount = estimatePageObjectCount(input)
+logger.info('📂 STEP 0B: Loading previous gate output from GATE 2')
 
-if (pageObjectCount >= 3) {
-  logger.info('🧠 STEP 0.5: Planning code generation strategy with sequential thinking')
-  
-  // Thought 1: Analyze requirements
-  await mcp_sequential-th_sequentialthinking({
-    thought: `Analyzing code generation requirements: ${input.testCases.length} test cases, ${input.elementMappings.length} elements to map, data strategy is ${input.dataStrategy?.type || 'single'}. I need to: 1) Determine test pattern (single vs forEach vs test.each for ${input.dataStrategy?.totalCases || 1} cases), 2) Generate page object classes with self-healing wrappers, 3) Handle ${input.elementMappings.filter(e => e.componentType !== 'standard').length} special components, 4) Validate TypeScript compilation`,
-    thoughtNumber: 1,
-    totalThoughts: 3,
-    nextThoughtNeeded: true
-  })
-  
-  // Thought 2: Plan test pattern and page object structure
-  await mcp_sequential-th_sequentialthinking({
-    thought: `Planning code structure: ${input.dataStrategy?.totalCases || 1} test cases requires ${input.dataStrategy?.totalCases <= 3 ? 'SINGLE test pattern (individual test() functions)' : input.dataStrategy?.totalCases <= 10 ? 'FOREACH pattern (testData.forEach)' : 'TEST.EACH.PARALLEL pattern (fastest for 10+ cases)'}. Will generate ${pageObjectCount} page object files: ${estimatePageObjectNames(input).join(', ')}. Each page object will have: private locator objects (primary + 2 fallbacks), public async methods with self-healing, constructor with Page parameter`,
-    thoughtNumber: 2,
-    totalThoughts: 3,
-    nextThoughtNeeded: true
-  })
-  
-  // Thought 3: Handle self-healing and fixtures
-  await mcp_sequential-th_sequentialthinking({
-    thought: `Planning self-healing strategy: ${knownWrappers.size > 0 ? `Found ${knownWrappers.size} wrapper patterns in memory - will reuse elementWithFallback() pattern` : 'No known wrappers - will generate new elementWithFallback() helper that tries primary → fallback1 → fallback2 with try-catch'}. Will update fixtures file to register ${pageObjectCount} page objects for dependency injection. Special components (${input.elementMappings.filter(e => e.componentType !== 'standard').length}): will generate dedicated helper methods like fillReactSelect(), selectDatepicker()`,
-    thoughtNumber: 3,
-    totalThoughts: 3,
-    nextThoughtNeeded: false
-  })
-  
-  logger.info('✅ Sequential thinking complete - proceeding with code generation')
-} else {
-  logger.info('⏭️  STEP 0.5 SKIPPED: Only ' + pageObjectCount + ' page objects - sequential thinking not required')
+const domain = input.metadata?.domain
+const feature = input.metadata?.feature
+
+if (!domain || !feature) {
+  throw new Error('domain and feature metadata are required for GATE 3 execution')
 }
-```
 
-**Output:** Natural language summary after each thought:
-```
-"Thought 1/3: I will generate code for 5 test cases with 8 elements. My approach: determine test pattern, generate page objects with self-healing, handle 2 special components, validate compilation."
+const gate2File = `.state/${domain}-${feature}-gate2-output.json`
+
+try {
+  const fileContent = await read_file(gate2File, 1, 10000)
+  const gate2State = JSON.parse(fileContent)
+  
+  if (gate2State.status === 'SUCCESS' || gate2State.status === 'PARTIAL') {
+    const elementMappings = gate2State.output
+    logger.info(`✅ Loaded GATE 2 output: ${elementMappings.elementMappings.length} element mappings`)
+    logger.info(`   SPA detected: ${elementMappings.isSPA || false}`)
+    logger.info(`   Special components: ${elementMappings.specialComponents?.length || 0}`)
+    
+    // Use element mappings from state file
+    elementMappingsFromState = elementMappings
+    
+    // Also need test cases for test spec generation - load GATE 1
+    const gate1File = `.state/${domain}-${feature}-gate1-output.json`
+    const gate1Content = await read_file(gate1File, 1, 10000)
+    const gate1State = JSON.parse(gate1Content)
+    testCasesFromState = gate1State.output.testCases
+    
+    logger.info(`✅ Also loaded GATE 1 output: ${testCasesFromState.length} test cases for spec generation`)
+  } else {
+    throw new Error(`GATE 2 status is ${gate2State.status} - cannot proceed`)
+  }
+  
+} catch (error) {
+  logger.error(`❌ Failed to load GATE 2 output: ${error.message}`)
+  throw new Error('Cannot execute GATE 3 without GATE 2 output')
+}
 ```
 
 ---
 
-### **Step 1: Analyze Input and Select Test Pattern**
+### **STEP 1: Plan Code Generation Strategy (MANDATORY)**
+
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 1 for complete parameter details.
+
+**Purpose:** Plan comprehensive approach for code generation using structured reasoning. POM generation is inherently complex (9-step workflow), so sequential thinking is ALWAYS required.
+
+**When:** ALWAYS - every POM generation task requires strategic planning.
+
+**Why MANDATORY:** POM generation involves: analyzing input complexity, selecting test patterns, generating page objects with self-healing, handling special components, updating fixtures, validating compilation, and storing patterns. This multi-phase process (9 steps total) ALWAYS exceeds the 3-step threshold requiring sequential thinking.
+
+**Execution (4-Thought Sequence):**
+
+```typescript
+logger.info('🧠 STEP 1: Planning code generation strategy with sequential thinking')
+
+// Thought 1: Analyze input complexity and scope
+await mcp_sequential-th_sequentialthinking({
+  thought: `Analyzing POM generation scope: ${input.testCases.length} test case(s) with ${input.elementMappings.length} UI elements to map. Data strategy: ${input.dataStrategy?.type || 'single'} (${input.dataStrategy?.totalCases || 1} test execution(s)). Special components detected: ${input.elementMappings.filter(e => e.componentType !== 'standard').length} (types: ${[...new Set(input.elementMappings.filter(e => e.componentType !== 'standard').map(e => e.componentType))].join(', ') || 'none'}). Framework: ${input.metadata.framework} with ${input.metadata.language}. Estimated files to generate: 2-4 (page object + test spec + fixture update + optional data file).`,
+  thoughtNumber: 1,
+  totalThoughts: 4,
+  nextThoughtNeeded: true
+})
+
+// Thought 2: Plan code structure and test pattern
+await mcp_sequential-th_sequentialthinking({
+  thought: `Planning code architecture: Test pattern selection based on ${input.dataStrategy?.totalCases || 1} case(s): ${input.dataStrategy?.totalCases <= 3 ? 'SINGLE pattern (individual test() blocks)' : input.dataStrategy?.totalCases <= 10 ? 'FOREACH pattern (testData.forEach with async)' : 'TEST.EACH pattern (Playwright native parallelization)'}. Page object structure: Class-based with constructor accepting Page parameter, private locator definitions (primary + fallback1 + fallback2 for each element), public async methods for user actions. File organization: page object in tests/test-objects/gui/pageObjects/pages/, test spec in tests/tests-management/gui/${input.metadata.feature}/, fixtures in shared pageFixture.ts.`,
+  thoughtNumber: 2,
+  totalThoughts: 4,
+  nextThoughtNeeded: true
+})
+
+// Thought 3: Plan self-healing and error handling
+await mcp_sequential-th_sequentialthinking({
+  thought: `Planning self-healing implementation: ${knownWrappers.size > 0 ? `Reusing ${knownWrappers.size} known wrapper pattern(s) from memory` : 'Creating new wrapper helpers'}. Strategy: Each interactive method (fill, click, select) will try primary locator first, catch failures, attempt fallback1, then fallback2 as last resort. Timeout per attempt: 2000ms. Logging: debug on primary success, warn on fallback activation, info on fallback success. ${input.elementMappings.filter(e => e.componentType !== 'standard').length > 0 ? `Special component handlers needed: ${input.elementMappings.filter(e => e.componentType !== 'standard').map(e => e.componentType).join(', ')} - will generate dedicated methods with component-specific interaction logic.` : 'No special component handlers needed - standard Playwright actions sufficient.'}`,
+  thoughtNumber: 3,
+  totalThoughts: 4,
+  nextThoughtNeeded: true
+})
+
+// Thought 4: Plan validation and quality assurance
+await mcp_sequential-th_sequentialthinking({
+  thought: `Planning validation workflow: Step 1 - Generate all files with proper TypeScript syntax. Step 2 - Use get_errors() tool to validate compilation of generated page object and test spec files. Step 3 - Check fixture registration doesn't create duplicates by reading existing fixture content. Step 4 - Verify all element mappings have corresponding page object methods (${input.elementMappings.length} mappings should produce ${input.elementMappings.length} methods minimum). Step 5 - Ensure test spec imports page object correctly and uses fixture injection pattern. Rollback strategy: If compilation fails, restore any modified files and report detailed error diagnostics.`,
+  thoughtNumber: 4,
+  totalThoughts: 4,
+  nextThoughtNeeded: false
+})
+
+logger.info('✅ Sequential thinking complete - proceeding with code generation')
+```
+
+**Output:** Natural language summary after each thought:
+```
+"Thought 1/4: Analyzing scope - 1 test case with 11 UI elements, single data strategy, 3 special components (datepicker, react-select x2). Will generate 3-4 files."
+
+"Thought 2/4: Planning architecture - SINGLE test pattern, class-based page object with 11+ methods, organized in standard framework directories."
+
+"Thought 3/4: Planning self-healing - No known wrappers found, will create new try-catch fallback pattern. Need special handlers for datepicker and react-select components."
+
+"Thought 4/4: Planning validation - Will use get_errors() for compilation check, verify fixture registration, ensure all 11 elements have methods, test rollback if failures."
+```
+
+---
+
+### **Step 2: Analyze Input and Select Test Pattern**
 
 ```typescript
 function selectTestPattern(input: POMGeneratorInput): TestPattern {
@@ -291,7 +388,7 @@ function selectTestPattern(input: POMGeneratorInput): TestPattern {
 
 ---
 
-### **Step 2: Generate Page Object Classes**
+### **Step 3: Generate Page Object Classes**
 
 ```typescript
 // Example generated page object
@@ -388,7 +485,7 @@ export default class RegistrationPage {
 
 ---
 
-### **Step 3: Register Page Object in Fixture**
+### **Step 4: Register Page Object in Fixture**
 
 ```typescript
 async function registerInFixture(pageObject: PageObjectInfo): Promise<void> {
@@ -425,7 +522,7 @@ async function registerInFixture(pageObject: PageObjectInfo): Promise<void> {
 
 ---
 
-### **Step 4: Generate Test Specs**
+### **Step 5: Generate Test Specs**
 
 #### **Pattern A: Single Test**
 ```typescript
@@ -497,7 +594,7 @@ test.describe.parallel('Registration Form - Parameterized', () => {
 
 ---
 
-### **Step 5: Handle Special Component Patterns**
+### **Step 6: Handle Special Component Patterns**
 
 ```typescript
 // React-Select pattern
@@ -532,7 +629,7 @@ async selectDate(month: string, year: string, day: string) {
 
 ---
 
-### **Step 6: Validate Compilation**
+### **Step 7: Validate Compilation**
 
 ```typescript
 async function validateCompilation(generatedFiles: string[]): Promise<CompilationResult> {
@@ -559,7 +656,7 @@ async function validateCompilation(generatedFiles: string[]): Promise<Compilatio
 
 ---
 
-### **Step 7: Rollback on Failure**
+### **Step 8: Rollback on Failure**
 
 ```typescript
 async function generateWithRollback(input: POMGeneratorInput): Promise<POMGeneratorOutput> {
@@ -603,9 +700,51 @@ async function generateWithRollback(input: POMGeneratorInput): Promise<POMGenera
 
 ---
 
-### **Step 8: Store Patterns in Memory (MANDATORY)**
+### **Step 9A: Write State File (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.3 for complete details.
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete schema details.
+
+**Purpose:** Persist generated code information to structured JSON file for GATE 4 (Test Execution).
+
+**When:** ALWAYS after successful code generation, BEFORE memory storage.
+
+**Execution:**
+
+```typescript
+logger.info('📝 STEP 9A: Writing gate output to state file')
+
+const gateStateFile = {
+  gate: 3,
+  agent: 'POMAgent',
+  status: output.validationResult.score >= 90 ? 'SUCCESS' : 'PARTIAL',
+  metadata: {
+    domain: input.metadata.domain,
+    feature: input.metadata.feature,
+    url: input.url
+  },
+  output: output,  // Complete GeneratedCode object
+  validation: {
+    score: output.validationResult.score,
+    issues: output.validationResult.issues,
+    passed: output.validationResult.score >= 90
+  }
+}
+
+await create_file(
+  `.state/${input.metadata.domain}-${input.metadata.feature}-gate3-output.json`,
+  JSON.stringify(gateStateFile, null, 2)
+)
+
+logger.info(`✅ State file created: .state/${input.metadata.domain}-${input.metadata.feature}-gate3-output.json`)
+```logger.info(`✅ State file created: .state/${input.metadata.requestId}-gate3-output.json`)
+logger.info(`   Status: ${gateStateFile.status}, Score: ${gateStateFile.validation.score}%`)
+```
+
+---
+
+### **Step 9B: Store Patterns in Memory (MANDATORY)**
+
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 2.3 for complete details.
 
 **Purpose:** Store discovered code generation patterns and self-healing strategies for future reuse.
 
@@ -614,7 +753,7 @@ async function generateWithRollback(input: POMGeneratorInput): Promise<POMGenera
 **Execution:**
 
 ```typescript
-logger.info('💾 STEP 8: Storing code patterns in memory')
+logger.info('💾 STEP 9B: Storing code patterns in memory')
 
 const entitiesToStore = []
 
@@ -633,7 +772,7 @@ entitiesToStore.push({
     `Special components: ${input.elementMappings.filter(e => e.componentType !== 'standard').length}`,
     `Compilation: ${output.compilationResult.hasErrors ? 'FAILED' : 'SUCCESS'}`,
     `Data strategy: ${input.dataStrategy?.type || 'single'}`,
-    `Verified: ${new Date().toISOString()}`
+    `Captured at: GATE 3 code generation`
   ]
 })
 
@@ -652,7 +791,7 @@ if (hasElementWithFallback) {
       `Error handling: try-catch with timeout`,
       `Return type: Locator`,
       `Used in: ${output.pageObjects.length} page objects`,
-      `Verified: ${new Date().toISOString()}`
+      `Captured at: GATE 3 self-healing pattern`
     ]
   })
 }
@@ -671,7 +810,7 @@ if (specialComponents.length > 0) {
         `Occurrences: ${specialComponents.filter(c => c.componentType === type).length}`,
         `Generated methods: ${type === 'react-select' ? 'fillReactSelect()' : type === 'datepicker' ? 'selectDatepicker()' : 'custom method'}`,
         `Interaction pattern: ${specialComponents.find(c => c.componentType === type)?.interactionPattern || 'N/A'}`,
-        `Verified: ${new Date().toISOString()}`
+        `Captured at: GATE 3 component code generation`
       ]
     })
   })
@@ -692,9 +831,9 @@ logger.info(`✅ Stored ${entitiesToStore.length} code patterns in memory`)
 
 ---
 
-### **Step 9: Self-Audit Checkpoint (MANDATORY)**
+### **Step 10: Self-Audit Checkpoint (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section "Enforcement Rules" for checkpoint template.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section "Enforcement Rules" for checkpoint template.
 
 **Purpose:** Verify all required MCPs were executed correctly.
 
@@ -703,24 +842,33 @@ logger.info(`✅ Stored ${entitiesToStore.length} code patterns in memory`)
 **Execution:**
 
 ```typescript
-logger.info('🔍 STEP 9: Self-audit checkpoint')
+logger.info('🔍 STEP 10: Self-audit checkpoint')
 
 const missingSteps = []
 
-// Check Step 0
+// Check Step 0A
 if (!executedMemorySearch) {
-  missingSteps.push('mcp_memory_search_nodes (Step 0)')
+  missingSteps.push('mcp_memory_search_nodes (Step 0A)')
 }
 
-// Check Step 0.5 (conditional)
-const pageObjectCount = output.pageObjects.length
-if (pageObjectCount >= 3 && !executedSequentialThinking) {
-  missingSteps.push('mcp_sequential-th_sequentialthinking (Step 0.5)')
+// Check Step 0B (mandatory for GATE 3)
+if (!loadedGate2Output) {
+  missingSteps.push('Load GATE 2 output (Step 0B)')
 }
 
-// Check Step 8
+// Check Step 1 (ALWAYS required - no longer conditional)
+if (!executedSequentialThinking) {
+  missingSteps.push('mcp_sequential-th_sequentialthinking (Step 1 - MANDATORY for all POM generation)')
+}
+
+// Check Step 9A
+if (!createdStateFile) {
+  missingSteps.push('create_file for state output (Step 9A)')
+}
+
+// Check Step 9B
 if (!executedMemoryStore) {
-  missingSteps.push('mcp_memory_create_entities (Step 8)')
+  missingSteps.push('mcp_memory_create_entities (Step 9B)')
 }
 
 // Calculate quality metrics
@@ -740,10 +888,12 @@ const avgMethodsPerPage = output.pageObjects.reduce((sum, po) =>
 **✅ CHECKPOINT: POM Generation Complete**
 
 Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried page object patterns for {feature}
-${pageObjectCount >= 3 ? '✅' : '⏭️'} mcp_sequential-th_sequentialthinking - ${pageObjectCount >= 3 ? 'Planned approach (3 thoughts)' : 'SKIPPED (< 3 page objects)'}
-✅ Main execution - Generated {fileCount} files
-✅ mcp_memory_create_entities - Stored {patternCount} patterns
+✅ mcp_memory_search_nodes - Queried page object patterns for {domain} {feature} (Step 0A)
+✅ Load GATE 2 output - Loaded {elementCount} element mappings from .state/{requestId}-gate2-output.json (Step 0B)
+✅ mcp_sequential-th_sequentialthinking - Planned approach (4 thoughts - MANDATORY for all POM generation) (Step 1)
+✅ Main execution - Generated {fileCount} files (Steps 2-8)
+✅ create_file - Wrote state file .state/{requestId}-gate3-output.json (Step 9A)
+✅ mcp_memory_create_entities - Stored {patternCount} patterns (Step 9B)
 
 MISSING STEPS: ${missingSteps.length > 0 ? missingSteps.join(', ') : 'None'}
 
@@ -763,8 +913,9 @@ ACTION: ${missingSteps.length > 0 ? 'ERROR - Going back to complete missing step
 **✅ CHECKPOINT: POM Generation Complete**
 
 Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried page object patterns for registration
-✅ mcp_sequential-th_sequentialthinking - Planned approach (3 thoughts)
+✅ mcp_memory_search_nodes - Queried page object patterns for demoqa_com student_registration (Step 0A)
+✅ Load GATE 2 output - Loaded 8 element mappings from .state/abc-123-gate2-output.json (Step 0B)
+✅ mcp_sequential-th_sequentialthinking - Planned approach (4 thoughts - MANDATORY)
 ✅ Main execution - Generated 5 files
 ✅ mcp_memory_create_entities - Stored 3 patterns (1 code + 1 wrapper + 1 component)
 
@@ -793,31 +944,32 @@ User Request Received
     - Search for component code patterns
     - Apply found patterns to strategy
     ↓
-[STEP 0.5] Plan Approach (mcp_sequential-th_sequentialthinking - if 3+ page objects)
-    - Thought 1: Analyze requirements
-    - Thought 2: Plan test pattern and page object structure
-    - Thought 3: Handle self-healing and fixtures
+[STEP 1] Plan Approach (mcp_sequential-th_sequentialthinking - MANDATORY)
+    - Thought 1: Analyze input complexity and scope
+    - Thought 2: Plan code structure and test pattern
+    - Thought 3: Plan self-healing and error handling
+    - Thought 4: Plan validation approach
     ↓
-[STEP 1] Analyze input and select test pattern
+[STEP 2] Analyze input and select test pattern
     ↓
-[STEP 2] Generate page object classes
+[STEP 3] Generate page object classes
     ↓
-[STEP 3] Register page objects in fixture
+[STEP 4] Register page objects in fixture
     ↓
-[STEP 4] Generate test specs
+[STEP 5] Generate test specs
     ↓
-[STEP 5] Handle special component patterns
+[STEP 6] Handle special component patterns
     ↓
-[STEP 6] Validate compilation (get_errors)
+[STEP 7] Validate compilation (get_errors)
     ↓
-[STEP 7] Rollback on failure (if errors)
+[STEP 8] Rollback on failure (if errors)
     ↓
-[STEP 8] Store Patterns (mcp_memory_create_entities)
+[STEP 9] Store Patterns (mcp_memory_create_entities)
     - Store code generation pattern
     - Store self-healing wrapper pattern
     - Store special component patterns
     ↓
-[STEP 9] Self-Audit Checkpoint
+[STEP 10] Self-Audit Checkpoint
     - Verify all MCPs executed
     - Calculate quality metrics
     - Output checkpoint with status
@@ -955,7 +1107,7 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 
 **Penalty for violation:** Tool call will fail or produce incomplete results.
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for complete parameter specifications for each tool.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
 
 ---
 
@@ -989,5 +1141,5 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 | `mcp_sequential-th_sequentialthinking` | Step 0.5 (if >= 3 page objects) | `thought`, `thoughtNumber`, `totalThoughts`, `nextThoughtNeeded` |
 | `mcp_memory_create_entities` | Step 8 (always) | `entities[]` with `name`, `entityType`, `observations[]` |
 
-**For complete details:** See `MCP_INTEGRATION_GUIDE.md`
+**For complete details:** See `mcp_integration_guide.instructions.md`
 

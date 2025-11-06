@@ -61,7 +61,7 @@ const testCases: TestCase[] = [{
 
 ### 1. Sequential Thinking Requirement
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for detailed parameter specifications.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for detailed parameter specifications.
 
 **WHEN TO USE** `mcp_sequential-th_sequentialthinking`:
 - ✅ Multi-step analysis (3+ steps)
@@ -95,7 +95,7 @@ const testCases: TestCase[] = [{
 
 ### 2. Memory-First Protocol
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for query patterns and storage examples.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for query patterns and storage examples.
 
 **MANDATORY STEP 0 for ALL Agents:**
 
@@ -132,7 +132,7 @@ await mcp_memory_create_entities({
     observations: [
       "Key fact 1 with details",
       "Key fact 2 with context",
-      `Verified: ${new Date().toISOString()}`
+      "Captured at: {phase} completion"
     ]
   }]
 })
@@ -315,7 +315,7 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 
 **Penalty for violation:** Tool call will fail or produce incomplete results.
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for complete parameter specifications for each tool.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
 
 ---
 

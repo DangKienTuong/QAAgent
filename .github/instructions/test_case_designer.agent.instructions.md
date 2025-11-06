@@ -129,7 +129,7 @@ interface TestDesignerOutput {
 
 ### **STEP 0: Query Memory for Existing Patterns (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.4 for complete details.
+**📖 REFERENCE:** See `memory_patterns_reference.instructions.md` Section "Test Case Designer Agent" for standardized query patterns. See `mcp_integration_guide.instructions.md` Section 2 for complete MCP tool details.
 
 **Purpose:** Query knowledge base for existing test patterns, data strategies, and similar user stories before designing test cases.
 
@@ -154,7 +154,7 @@ const hasDataKeywords = keywords.test(input.userStory)
 
 if (hasDataKeywords || input.dataStrategy?.type === 'data-driven') {
   const dataPatterns = await mcp_memory_search_nodes({
-    query: `${domain} data-driven test patterns`
+    query: `${domain} ${feature} data-driven patterns`
   })
   
   if (dataPatterns.entities.length > 0) {
@@ -175,7 +175,7 @@ if (hasDataKeywords || input.dataStrategy?.type === 'data-driven') {
 
 // Query 3: Similar acceptance criteria patterns
 const acPatterns = await mcp_memory_search_nodes({
-  query: `${domain} acceptance criteria test coverage`
+  query: `${domain} ${feature} acceptance criteria coverage`
 })
 
 // Process test pattern results
@@ -204,9 +204,54 @@ if (testPatterns.entities.length > 0) {
 
 ---
 
+### **STEP 0B: Load Previous Gate Output (CONDITIONAL)**
+
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete implementation pattern.
+
+**Purpose:** Load data preparation output from GATE 0 if data-driven mode was executed.
+
+**When:** After Step 0A (memory queries), if pipeline used GATE 0.
+
+**Execution:**
+
+```typescript
+logger.info('📂 STEP 0B: Loading previous gate output (if exists)')
+
+// GATE 1 receives input from either:
+// 1. GATE 0 output (if data-driven) - .state/{domain}-{feature}-gate0-output.json
+// 2. Orchestration directly (if single test) - input object
+
+const domain = input.metadata?.domain
+const feature = input.metadata?.feature
+
+if (domain && feature) {
+  const gate0File = `.state/${domain}-${feature}-gate0-output.json`
+  
+  try {
+    const fileContent = await read_file(gate0File, 1, 5000)
+    const gate0State = JSON.parse(fileContent)
+    
+    if (gate0State.status === 'SUCCESS') {
+      const dataStrategy = gate0State.output
+      logger.info(`✅ Loaded GATE 0 output: ${dataStrategy.totalCases} test data sets prepared`)
+      logger.info(`   Data file: ${dataStrategy.dataFile}`)
+      
+      // Use this data strategy during test case generation
+      knownDataStrategy = dataStrategy
+    }
+  } catch (error) {
+    logger.info('ℹ️ No GATE 0 output found - single test mode (no data preparation)')
+  }
+} else {
+  logger.info('ℹ️ No metadata provided - using input from orchestration')
+}
+```
+
+---
+
 ### **Step 1: Use Sequential Thinking for Test Strategy (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 1 for complete parameter details.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 1 for complete parameter details.
 
 **Purpose:** Plan comprehensive test approach using structured reasoning.
 
@@ -338,8 +383,8 @@ if (dataStrategy.type === 'single') {
 
 ```typescript
 if (dataStrategy.type === 'data-driven') {
-  // Set Faker seed for reproducibility
-  const seed = dataStrategy.seed || Date.now();
+  // Set Faker seed for reproducibility (use provided seed or default value)
+  const seed = dataStrategy.seed || 12345;
   faker.seed(seed);
   
   // Generate valid test data
@@ -440,7 +485,6 @@ if (dataStrategy.type === 'data-driven') {
     JSON.stringify({
       testSuite: `${metadata.feature}`,
       domain: metadata.domain,
-      generatedAt: new Date().toISOString(),
       seed: seed,
       ...allTestData
     }, null, 2)
@@ -566,9 +610,53 @@ function calculateCoverage(output: TestDesignerOutput, acceptanceCriteria: strin
 
 ---
 
-### **Step 6: Store Patterns in Memory (MANDATORY)**
+### **Step 6A: Write State File (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section 2.4 for complete details.
+**📖 REFERENCE:** See `state_management_guide.instructions.md` for complete schema details.
+
+**Purpose:** Persist test case output to structured JSON file for GATE 2 (DOM Analysis).
+
+**When:** ALWAYS after successful test case generation, BEFORE memory storage.
+
+**Execution:**
+
+```typescript
+logger.info('📝 STEP 6A: Writing gate output to state file')
+
+const gateStateFile = {
+  gate: 1,
+  agent: 'TestCaseDesigner',
+  status: output.validationResult.score >= 80 ? 'SUCCESS' : 'PARTIAL',
+  metadata: {
+    domain: input.metadata.domain,
+    feature: input.metadata.feature,
+    url: input.url
+  },
+  output: output,  // Complete TestCasesOutput object
+  validation: {
+    score: output.validationResult.score,
+    issues: output.validationResult.issues,
+    passed: output.validationResult.score >= 80
+  }
+}
+
+await create_file(
+  `.state/${input.metadata.domain}-${input.metadata.feature}-gate1-output.json`,
+  JSON.stringify(gateStateFile, null, 2)
+)
+
+logger.info(`✅ State file created: .state/${input.metadata.domain}-${input.metadata.feature}-gate1-output.json`)
+```
+
+logger.info(`✅ State file created: .state/${input.metadata.requestId}-gate1-output.json`)
+logger.info(`   Status: ${gateStateFile.status}, Score: ${gateStateFile.validation.score}%`)
+```
+
+---
+
+### **Step 6B: Store Patterns in Memory (MANDATORY)**
+
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section 2.4 for complete details.
 
 **Purpose:** Store discovered test patterns and data generation strategies for future reuse.
 
@@ -577,7 +665,7 @@ function calculateCoverage(output: TestDesignerOutput, acceptanceCriteria: strin
 **Execution:**
 
 ```typescript
-logger.info('💾 STEP 6: Storing test patterns in memory')
+logger.info('💾 STEP 6B: Storing test patterns in memory')
 
 const entitiesToStore = []
 
@@ -593,7 +681,7 @@ entitiesToStore.push({
     `Coverage: ${(output.validationResult.score * 100).toFixed(0)}%`,
     `Acceptance criteria: ${input.acceptanceCriteria.length}`,
     `Average steps per test: ${(output.testCases.reduce((sum, tc) => sum + tc.testSteps.length, 0) / output.testCases.length).toFixed(1)}`,
-    `Verified: ${new Date().toISOString()}`
+    `Captured at: GATE 1 completion`
   ]
 })
 
@@ -613,7 +701,7 @@ if (output.dataStrategy?.type === 'data-driven') {
       `Seed: ${output.dataStrategy.seed || 'random'}`,
       `Fields generated: ${extractFieldsFromHTML(input.cachedHTML).join(', ')}`,
       `Constraints applied: ${Object.keys(input.constraints || {}).length} field constraints`,
-      `Verified: ${new Date().toISOString()}`
+      `Captured at: GATE 1 data pattern storage`
     ]
   })
 }
@@ -631,7 +719,7 @@ entitiesToStore.push({
     `Total acceptance criteria: ${input.acceptanceCriteria.length}`,
     `Covered criteria: ${new Set(output.testCases.map(tc => tc.acceptanceCriteriaRef)).size}`,
     ...coverageDetails,
-    `Verified: ${new Date().toISOString()}`
+    `Captured at: GATE 1 coverage analysis`
   ]
 })
 
@@ -652,7 +740,7 @@ logger.info(`✅ Stored ${entitiesToStore.length} patterns in memory (${output.d
 
 ### **Step 7: Self-Audit Checkpoint (MANDATORY)**
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` Section "Enforcement Rules" for checkpoint template.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` Section "Enforcement Rules" for checkpoint template. See `state_management_guide.instructions.md` for state file validation.
 
 **Purpose:** Verify all required MCPs were executed correctly.
 
@@ -665,9 +753,15 @@ logger.info('🔍 STEP 7: Self-audit checkpoint')
 
 const missingSteps = []
 
-// Check Step 0
+// Check Step 0A
 if (!executedMemorySearch) {
-  missingSteps.push('mcp_memory_search_nodes (Step 0)')
+  missingSteps.push('mcp_memory_search_nodes (Step 0A)')
+}
+
+// Check Step 0B (conditional)
+const hasRequestId = input.metadata?.requestId
+if (hasRequestId && !attemptedLoadPreviousGate) {
+  missingSteps.push('Load previous gate output (Step 0B)')
 }
 
 // Check Step 1 (always required for this agent)
@@ -675,9 +769,14 @@ if (!executedSequentialThinking) {
   missingSteps.push('mcp_sequential-th_sequentialthinking (Step 1)')
 }
 
-// Check Step 6
+// Check Step 6A
+if (!createdStateFile) {
+  missingSteps.push('create_file for state output (Step 6A)')
+}
+
+// Check Step 6B
 if (!executedMemoryStore) {
-  missingSteps.push('mcp_memory_create_entities (Step 6)')
+  missingSteps.push('mcp_memory_create_entities (Step 6B)')
 }
 
 // Calculate quality metrics
@@ -701,10 +800,12 @@ const testTypeBreakdown = {
 **✅ CHECKPOINT: Test Case Design Complete**
 
 Required MCPs for this agent:
-✅ mcp_memory_search_nodes - Queried test patterns for {domain} {feature}
-✅ mcp_sequential-th_sequentialthinking - Planned test strategy (5 thoughts)
-✅ Main execution - Generated {totalTests} test cases
-✅ mcp_memory_create_entities - Stored {patternCount} patterns
+✅ mcp_memory_search_nodes - Queried test patterns for {domain} {feature} (Step 0A)
+${hasRequestId ? '✅ Load previous gate output - Attempted to load GATE 0 data (Step 0B)' : '⏭️ Skip previous gate load - No requestId provided'}
+✅ mcp_sequential-th_sequentialthinking - Planned test strategy (5 thoughts) (Step 1)
+✅ Main execution - Generated {totalTests} test cases (Steps 2-5)
+✅ create_file - Wrote state file .state/{requestId}-gate1-output.json (Step 6A)
+✅ mcp_memory_create_entities - Stored {patternCount} patterns (Step 6B)
 
 MISSING STEPS: ${missingSteps.length > 0 ? missingSteps.join(', ') : 'None'}
 
@@ -1051,7 +1152,7 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 
 **Penalty for violation:** Tool call will fail or produce incomplete results.
 
-**📖 REFERENCE:** See `MCP_INTEGRATION_GUIDE.md` for complete parameter specifications for each tool.
+**📖 REFERENCE:** See `mcp_integration_guide.instructions.md` for complete parameter specifications for each tool.
 
 ---
 
@@ -1091,5 +1192,5 @@ ACTION: {If any missing: "Going back to complete" | If all complete: "Proceeding
 - `DataPattern` - Data generation strategy (if data-driven)
 - `TestPattern` (coverage) - Acceptance criteria mapping
 
-**For complete details:** See `MCP_INTEGRATION_GUIDE.md`
+**For complete details:** See `mcp_integration_guide.instructions.md`
 
