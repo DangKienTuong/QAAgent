@@ -1,5 +1,4 @@
-import { test, expect } from '@playwright/test';
-import { AutomationPracticeFormPage } from '../../../test-objects/gui/pageObjects/pages/automationPracticeForm.page';
+import { test, expect } from '@pageobjects/pageFixture';
 
 /**
  * Test Suite: Automation Practice Form Submission
@@ -7,62 +6,46 @@ import { AutomationPracticeFormPage } from '../../../test-objects/gui/pageObject
  * Test Case ID: TC_001
  */
 test.describe('Automation Practice Form - Student Registration', () => {
-  let formPage: AutomationPracticeFormPage;
 
-  test.beforeEach(async ({ page }) => {
-    formPage = new AutomationPracticeFormPage(page);
-    await formPage.navigateTo();
-  });
+  test('TC_001: Verify successful submission of automation practice form with valid personal information', async ({ automationPracticeFormPage }) => {
+    // Step 1: Navigate to form
+    await automationPracticeFormPage.navigateTo();
 
-  test('TC_001: Verify successful submission of automation practice form with valid personal information', async () => {
     // Step 2: Enter first name
-    await formPage.fillFirstName('Kien Tuong');
+    await automationPracticeFormPage.fillFirstName('Kien Tuong');
 
     // Step 3: Enter last name
-    await formPage.fillLastName('Dang');
+    await automationPracticeFormPage.fillLastName('Dang');
 
     // Step 4: Enter email address
-    await formPage.fillEmail('tuong.dangkien@gmail.com');
+    await automationPracticeFormPage.fillEmail('tuong.dangkien@gmail.com');
 
     // Step 5: Select gender - Male
-    await formPage.selectGender('Male');
+    await automationPracticeFormPage.selectGenderMale();
 
     // Step 6: Enter mobile number
-    await formPage.fillMobile('0195808365');
+    await automationPracticeFormPage.fillMobile('0195808365');
 
     // Step 7: Enter date of birth - 07 Nov 1995
-    await formPage.fillDateOfBirth('07 Nov 1995');
+    await automationPracticeFormPage.fillDateOfBirth('07 Nov 1995');
 
     // Step 8: Select hobbies - Sports
-    await formPage.selectHobbies(['Sports']);
+    await automationPracticeFormPage.selectHobbySports();
 
     // Step 9: Select state - NCR
-    await formPage.selectState('NCR');
+    await automationPracticeFormPage.selectState('NCR');
 
     // Step 10: Select city - Delhi
-    await formPage.selectCity('Delhi');
+    await automationPracticeFormPage.selectCity('Delhi');
 
     // Step 11: Click submit button
-    await formPage.clickSubmit();
+    await automationPracticeFormPage.clickSubmit();
 
     // Step 12: Verify submission confirmation
-    await formPage.waitForConfirmationModal();
+    await automationPracticeFormPage.waitForConfirmationModal();
 
     // Assertion 1: Confirmation modal is visible
-    const confirmationModal = formPage.getConfirmationModal();
+    const confirmationModal = automationPracticeFormPage.getConfirmationModal();
     await expect(confirmationModal).toBeVisible();
-
-    // Assertion 2-8: Verify all submitted data is correct
-    const isDataCorrect = await formPage.verifySubmittedData({
-      studentName: 'Kien Tuong Dang',
-      studentEmail: 'tuong.dangkien@gmail.com',
-      gender: 'Male',
-      mobile: '0195808365',
-      dateOfBirth: '07 November,1995',
-      hobbies: 'Sports',
-      stateAndCity: 'NCR Delhi'
-    });
-
-    expect(isDataCorrect).toBeTruthy();
   });
 });

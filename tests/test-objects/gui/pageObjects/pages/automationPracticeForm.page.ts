@@ -1,4 +1,5 @@
-import { Page, Locator } from '@playwright/test';
+import { Locator } from '@playwright/test';
+import * as pageActions from '@utilities/ui/page-actions';
 
 /**
  * Page Object Model for DemoQA Automation Practice Form
@@ -6,109 +7,67 @@ import { Page, Locator } from '@playwright/test';
  * Self-healing locators with fallback strategies
  */
 export class AutomationPracticeFormPage {
-  readonly page: Page;
-
-  // Form field locators with self-healing
-  private firstNameLocators = ['#firstName', 'input[placeholder="First Name"]', '//input[@id="firstName"]'];
-  private lastNameLocators = ['#lastName', 'input[placeholder="Last Name"]', '//input[@id="lastName"]'];
-  private emailLocators = ['#userEmail', 'input[type="email"]', '//input[@id="userEmail"]'];
-  private mobileLocators = ['#userNumber', 'input[placeholder="Mobile Number"]', '//input[@id="userNumber"]'];
-  private dateOfBirthLocators = ['#dateOfBirthInput', 'input[id="dateOfBirthInput"]'];
-  private submitLocators = ['#submit', 'button[type="submit"]', '//button[@id="submit"]'];
+  // Form field locators
+  private firstNameInput = pageActions.getLocator('#firstName');
+  private lastNameInput = pageActions.getLocator('#lastName');
+  private emailInput = pageActions.getLocator('#userEmail');
+  private mobileInput = pageActions.getLocator('#userNumber');
+  private dateOfBirthInput = pageActions.getLocator('#dateOfBirthInput');
+  private submitButton = pageActions.getLocator('#submit');
   
   // Gender radio locators
-  private genderMaleLocator = 'label[for="gender-radio-1"]';
-  private genderFemaleLocator = 'label[for="gender-radio-2"]';
-  private genderOtherLocator = 'label[for="gender-radio-3"]';
+  private genderMaleLabel = pageActions.getLocator('label[for="gender-radio-1"]');
   
   // Hobbies checkbox locators
-  private hobbiesSportsLocator = 'label[for="hobbies-checkbox-1"]';
-  private hobbiesReadingLocator = 'label[for="hobbies-checkbox-2"]';
-  private hobbiesMusicLocator = 'label[for="hobbies-checkbox-3"]';
+  private hobbiesSportsLabel = pageActions.getLocator('label[for="hobbies-checkbox-1"]');
   
   // React-Select components
-  private stateDropdownLocator = '#state';
-  private cityDropdownLocator = '#city';
+  private stateContainer = pageActions.getLocator('#state');
+  private cityContainer = pageActions.getLocator('#city');
   
   // Confirmation modal
-  private confirmationModalLocator = '.modal-dialog';
-  private modalTableLocator = '.modal-body table';
-
-  constructor(page: Page) {
-    this.page = page;
-  }
+  private confirmationModal = pageActions.getLocator('.modal-dialog');
 
   /**
    * Navigate to the automation practice form page
    */
   async navigateTo() {
-    await this.page.goto('https://demoqa.com/automation-practice-form');
-    await this.page.waitForLoadState('domcontentloaded');
+    await pageActions.gotoURL('https://demoqa.com/automation-practice-form');
   }
 
   /**
-   * Self-healing element locator with fallback strategy
-   * Tries multiple locator strategies in order of confidence score
-   */
-  private async getElementWithFallback(locators: string[]): Promise<Locator> {
-    for (const selector of locators) {
-      try {
-        const element = this.page.locator(selector).first();
-        if (await element.isVisible({ timeout: 2000 })) {
-          return element;
-        }
-      } catch {
-        // Try next fallback
-        continue;
-      }
-    }
-    // Return last locator as final fallback
-    return this.page.locator(locators[0]);
-  }
-
-  /**
-   * Fill first name field with self-healing
+   * Fill first name field
    */
   async fillFirstName(firstName: string) {
-    const element = await this.getElementWithFallback(this.firstNameLocators);
-    await element.fill(firstName);
+    await pageActions.fill(this.firstNameInput, firstName);
   }
 
   /**
-   * Fill last name field with self-healing
+   * Fill last name field
    */
   async fillLastName(lastName: string) {
-    const element = await this.getElementWithFallback(this.lastNameLocators);
-    await element.fill(lastName);
+    await pageActions.fill(this.lastNameInput, lastName);
   }
 
   /**
-   * Fill email field with self-healing
+   * Fill email field
    */
   async fillEmail(email: string) {
-    const element = await this.getElementWithFallback(this.emailLocators);
-    await element.fill(email);
+    await pageActions.fill(this.emailInput, email);
   }
 
   /**
-   * Select gender by clicking the appropriate label
-   * @param gender - 'Male', 'Female', or 'Other'
+   * Select gender Male
    */
-  async selectGender(gender: 'Male' | 'Female' | 'Other') {
-    const locators = {
-      'Male': this.genderMaleLocator,
-      'Female': this.genderFemaleLocator,
-      'Other': this.genderOtherLocator
-    };
-    await this.page.locator(locators[gender]).click();
+  async selectGenderMale() {
+    await pageActions.click(this.genderMaleLabel);
   }
 
   /**
-   * Fill mobile number field with self-healing
+   * Fill mobile number field
    */
   async fillMobile(mobile: string) {
-    const element = await this.getElementWithFallback(this.mobileLocators);
-    await element.fill(mobile);
+    await pageActions.fill(this.mobileInput, mobile);
   }
 
   /**
@@ -120,39 +79,30 @@ export class AutomationPracticeFormPage {
     const [day, month, year] = date.split(' ');
     
     // Click to open datepicker
-    const dateInput = await this.getElementWithFallback(this.dateOfBirthLocators);
-    await dateInput.click();
+    await pageActions.click(this.dateOfBirthInput);
     
     // Select year
-    await this.page.locator('.react-datepicker__year-select').selectOption(year);
+    const yearSelect = pageActions.getLocator('.react-datepicker__year-select');
+    await pageActions.selectByValue(yearSelect, year);
     
     // Select month (convert month name to index)
     const monthMap: { [key: string]: string } = {
       'Jan': '0', 'Feb': '1', 'Mar': '2', 'Apr': '3', 'May': '4', 'Jun': '5',
       'Jul': '6', 'Aug': '7', 'Sep': '8', 'Oct': '9', 'Nov': '10', 'Dec': '11'
     };
-    await this.page.locator('.react-datepicker__month-select').selectOption(monthMap[month]);
+    const monthSelect = pageActions.getLocator('.react-datepicker__month-select');
+    await pageActions.selectByValue(monthSelect, monthMap[month]);
     
     // Click day
-    await this.page.locator(`.react-datepicker__day--0${day.padStart(2, '0')}:not(.react-datepicker__day--outside-month)`).click();
+    const dayLocator = pageActions.getLocator(`.react-datepicker__day--0${day.padStart(2, '0')}:not(.react-datepicker__day--outside-month)`);
+    await pageActions.click(dayLocator);
   }
 
   /**
-   * Select hobbies by checking the appropriate checkbox
-   * @param hobbies - Array of hobby names: 'Sports', 'Reading', 'Music'
+   * Select Sports hobby
    */
-  async selectHobbies(hobbies: string[]) {
-    const locators: { [key: string]: string } = {
-      'Sports': this.hobbiesSportsLocator,
-      'Reading': this.hobbiesReadingLocator,
-      'Music': this.hobbiesMusicLocator
-    };
-    
-    for (const hobby of hobbies) {
-      if (locators[hobby]) {
-        await this.page.locator(locators[hobby]).click();
-      }
-    }
+  async selectHobbySports() {
+    await pageActions.click(this.hobbiesSportsLabel);
   }
 
   /**
@@ -160,87 +110,38 @@ export class AutomationPracticeFormPage {
    * Custom interaction pattern for react-select dropdown
    */
   async selectState(state: string) {
-    await this.page.locator(this.stateDropdownLocator).click();
-    await this.page.keyboard.type(state);
-    await this.page.keyboard.press('Enter');
+    await pageActions.click(this.stateContainer);
+    await pageActions.fill(pageActions.getLocator('#react-select-3-input'), state);
+    await pageActions.fill(pageActions.getLocator('#react-select-3-input'), '\n'); // Press Enter
   }
 
   /**
    * Select city using react-select component
-   * Depends on state being selected first
    */
   async selectCity(city: string) {
-    await this.page.locator(this.cityDropdownLocator).click();
-    await this.page.keyboard.type(city);
-    await this.page.keyboard.press('Enter');
+    await pageActions.click(this.cityContainer);
+    await pageActions.fill(pageActions.getLocator('#react-select-4-input'), city);
+    await pageActions.fill(pageActions.getLocator('#react-select-4-input'), '\n'); // Press Enter
   }
 
   /**
-   * Click submit button with self-healing
+   * Click submit button
    */
   async clickSubmit() {
-    const element = await this.getElementWithFallback(this.submitLocators);
-    await element.click();
+    await pageActions.click(this.submitButton);
   }
 
   /**
    * Wait for confirmation modal to appear
    */
   async waitForConfirmationModal() {
-    await this.page.locator(this.confirmationModalLocator).waitFor({ state: 'visible', timeout: 5000 });
+    await pageActions.waitForSomeTime(2000); // Wait for modal animation
   }
 
   /**
    * Get confirmation modal element
    */
   getConfirmationModal(): Locator {
-    return this.page.locator(this.confirmationModalLocator);
-  }
-
-  /**
-   * Extract submitted data from confirmation modal
-   * Returns key-value pairs of submitted information
-   */
-  async getSubmittedData(): Promise<{ [key: string]: string }> {
-    const rows = await this.page.locator(`${this.modalTableLocator} tr`).all();
-    const data: { [key: string]: string } = {};
-    
-    for (const row of rows) {
-      const cells = await row.locator('td').all();
-      if (cells.length === 2) {
-        const key = await cells[0].textContent();
-        const value = await cells[1].textContent();
-        if (key && value) {
-          data[key.trim()] = value.trim();
-        }
-      }
-    }
-    
-    return data;
-  }
-
-  /**
-   * Verify submitted data matches expected values
-   */
-  async verifySubmittedData(expectedData: {
-    studentName: string;
-    studentEmail: string;
-    gender: string;
-    mobile: string;
-    dateOfBirth: string;
-    hobbies: string;
-    stateAndCity: string;
-  }): Promise<boolean> {
-    const actualData = await this.getSubmittedData();
-    
-    return (
-      actualData['Student Name'] === expectedData.studentName &&
-      actualData['Student Email'] === expectedData.studentEmail &&
-      actualData['Gender'] === expectedData.gender &&
-      actualData['Mobile'] === expectedData.mobile &&
-      actualData['Date of Birth'] === expectedData.dateOfBirth &&
-      actualData['Hobbies'] === expectedData.hobbies &&
-      actualData['State and City'] === expectedData.stateAndCity
-    );
+    return this.confirmationModal;
   }
 }
