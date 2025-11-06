@@ -3,6 +3,8 @@ applyTo: '**/dom_analysis.agent'
 description: 'DOM Analysis Agent - Maps UI elements to robust locator strategies with MCP integration - References: TEMPLATE_GUIDE.md (architecture), critical_thinking_protocol.instructions.md (mandatory skepticism), mcp_integration_guide.instructions.md, state_management_guide.instructions.md'
 ---
 
+<!-- FILE LENGTH: 1158 lines | MANDATORY STEPS: Step 0A-0E, Step 1-9 | READ COMPLETE FILE BEFORE EXECUTION -->
+
 # DOM ANALYSIS AGENT
 
 ## Purpose

@@ -3,6 +3,8 @@ applyTo: '**/pom_generator.agent'
 description: 'POM Generator Agent - Creates Page Object Model code from test designs and DOM mappings'
 ---
 
+<!-- FILE LENGTH: 1600 lines | MANDATORY STEPS: Step 0A-0E, Step 1-8 | READ COMPLETE FILE BEFORE EXECUTION -->
+
 # POM GENERATOR AGENT
 
 ## Purpose

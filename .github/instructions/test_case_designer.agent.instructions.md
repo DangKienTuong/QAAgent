@@ -3,6 +3,8 @@ applyTo: '**/test_case_designer.agent'
 description: 'Test Case Designer Agent - Converts user stories to structured test cases with data-driven support - References: TEMPLATE_GUIDE.md (architecture), critical_thinking_protocol.instructions.md (mandatory skepticism), data_driven_guide.instructions.md, mcp_integration_guide.instructions.md, state_management_guide.instructions.md'
 ---
 
+<!-- FILE LENGTH: 1744 lines | MANDATORY STEPS: Step 0A-0E, Step 1-7 | READ COMPLETE FILE BEFORE EXECUTION -->
+
 # TEST CASE DESIGNER AGENT
 
 ## Purpose

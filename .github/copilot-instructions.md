@@ -47,7 +47,14 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 ```
 1. **Prepare Input:** Write .agent file with structured input data
 2. **Announce Delegation:** Output "DELEGATING TO [Agent Name] for GATE N"
-3. **Load Agent Instructions:** Read .github/instructions/[agent].agent.instructions.md
+3. **Load Agent Instructions (COMPLETE FILE REQUIRED):**
+   a. Read .github/instructions/[agent].agent.instructions.md in FULL
+   b. Use read_file with large endLine (e.g., 10000) or read in 500-line chunks until EOF
+   c. Agent instruction files are 1000-1700 lines - MUST read ALL lines
+   d. Verify completeness: Check for "Step 0A", "Step 0B", "Step N+3: Output Checkpoint"
+   e. If any mandatory step missing, read remaining lines
+   f. Output confirmation: "Loaded {total_lines} lines covering Steps {step_list}"
+   g. CRITICAL: Do NOT proceed with partial instructions - 100% load required
 4. **Execute Agent Steps:** Perform ALL steps from agent's Step-by-Step Procedure section
    - Step 0A: Read .agent File (use read_file tool)
    - Step 0B: Query Memory (use mcp_memory_search_nodes)
@@ -69,6 +76,7 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 **NEVER:**
 - Create gate output files directly from orchestration
 - Skip agent instruction file reading
+- Read partial agent instructions (MUST read complete file - 1000-1700 lines)
 - Skip agent's Step 0A-0E (mandatory pre-flight steps)
 - Skip agent's sequential thinking (Step 1)
 - Skip agent's checkpoint output (Step N+3)
@@ -76,6 +84,7 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 **ALWAYS:**
 - Output delegation announcement before agent work
+- Load COMPLETE agent instruction file (verify all steps present)
 - Execute EVERY step from agent's instruction file
 - Use actual tool calls for each step (read_file, mcp_memory_search_nodes, etc.)
 - Let agent create its own output file

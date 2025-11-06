@@ -3,6 +3,8 @@ applyTo: '**/test_healing.agent'
 description: 'Test Healing Agent - Autonomous test failure detection and repair'
 ---
 
+<!-- FILE LENGTH: 1126 lines | MANDATORY STEPS: Step 0A-0E, Step 1-8 | READ COMPLETE FILE BEFORE EXECUTION -->
+
 # TEST HEALING AGENT
 
 ## Purpose
