@@ -7,6 +7,36 @@ description: 'Test Healing Agent - Autonomous test failure detection and repair'
 
 # TEST HEALING AGENT
 
+## 🚨 CRITICAL: MANDATORY INVOCATION REQUIREMENT
+
+**THIS AGENT MUST BE AUTOMATICALLY INVOKED BY ORCHESTRATION - NOT OPTIONAL**
+
+**Trigger Criteria (ALL must be true):**
+1. ✅ Consecutive test failures: 2+ runs with SAME error signature
+2. ✅ Same failing tests: Identical testIds across consecutive failures
+3. ✅ Healing attempts < max: Current attempt count < 5
+
+**Enforcement:**
+- If ALL 3 criteria met → Orchestration MUST invoke this agent via Agent Delegation Protocol
+- Orchestration CANNOT skip to GATE 5 without either:
+  - ✅ Healing agent invocation completed (success or failure documented)
+  - ✅ Max healing attempts (5) reached with all attempts exhausted
+- Skipping healing when criteria met = **PIPELINE FAILURE**
+
+**Why This Matters:**
+- Healing is core automation capability, not optional convenience
+- Consecutive identical failures indicate systematic issue (not flakiness)
+- Skipping healing defeats purpose of autonomous test repair
+- "Demonstration constraints" or "time constraints" are NOT valid skip reasons
+
+**Orchestration Responsibility:**
+- Evaluate healing criteria after EVERY test execution run
+- Invoke healing immediately when criteria met
+- Track healing attempt count across invocations
+- Only proceed to GATE 5 after healing exhausted or tests pass
+
+---
+
 ## Purpose
 
 Analyze failed tests, identify root causes through sequential thinking, and apply corrective actions autonomously with rollback capabilities. Support error classification (timeout, locator, assertion, strict mode, network), healing strategies (locator update, timing adjustment, assertion fix, data correction), verification through re-run, and rollback if healing fails.
@@ -81,8 +111,8 @@ All TypeScript/JavaScript examples are **structural templates** showing logic pa
 //     cachedHTML: "<PATH_OR_NULL>",  // Path to static HTML (may need to re-fetch)
 //     browserSnapshot: "<PATH_OR_NULL>",  // Path to Playwright snapshot
 //     pageAnalysis: "<PATH_OR_NULL>",  // Path to page analysis
-//     healingAttemptCount: <CURRENT_ATTEMPT_NUMBER>,  // Current healing attempt (1, 2, or 3)
-//     maxHealingAttempts: 3  // Maximum allowed healing attempts
+//     healingAttemptCount: <CURRENT_ATTEMPT_NUMBER>,  // Current healing attempt (1, 2, 3, 4, or 5)
+//     maxHealingAttempts: 5  // Maximum allowed healing attempts
 //   }
 // }
 ```
@@ -91,8 +121,8 @@ All TypeScript/JavaScript examples are **structural templates** showing logic pa
 - `failedTest.errorMessage`, `failedTest.testFile`: Non-empty strings
 - `executionHistory`: Array with length ≥ 1
 - `generatedCode.pageObjects`, `generatedCode.testSpecs`: Non-empty arrays
-- `healingAttemptCount`: Current attempt number (1-3)
-- `maxHealingAttempts`: Maximum allowed attempts (default: 3)
+- `healingAttemptCount`: Current attempt number (1-5)
+- `maxHealingAttempts`: Maximum allowed attempts (default: 5)
 
 ---
 
@@ -131,7 +161,7 @@ All TypeScript/JavaScript examples are **structural templates** showing logic pa
 //       verificationStatus: "PASS" | "FAIL" | "NOT_VERIFIED"
 //     },
 //     attemptsUsed: <COUNT>,
-//     maxAttemptsAllowed: 3,
+//     maxAttemptsAllowed: 5,
 //     rollbackPerformed: <BOOLEAN>,
 //     rollbackReason: "<REASON_IF_PERFORMED>"
 //   },
@@ -246,7 +276,7 @@ Query knowledge base for existing healing patterns:
 ```
 
 **Output:** Natural language summary like:
-- "Found existing ErrorSolution with 2 previous attempts. Attempt 1 failed with locator-update. Attempt 2 failed with wait-strategy. This is attempt 3 - will try strict-mode-resolution."
+- "Found existing ErrorSolution with 4 previous attempts. Attempt 1 failed with locator-update. Attempt 2 failed with wait-strategy. Attempt 3 failed with strict-mode-resolution. Attempt 4 failed with assertion-fix. This is attempt 5 (FINAL) - will try data-correction."
 - "No previous attempts found. First healing attempt for this error."
 
 ### Step 1: Sequential Thinking for Root Cause Analysis (MANDATORY)
@@ -752,7 +782,7 @@ Write structured output to `.state/{domain}-{feature}-healing-{attemptNumber}.js
 //   output: {
 //     healingResult: healingResult,
 //     attemptsUsed: currentAttempt,
-//     maxAttemptsAllowed: 3,
+//     maxAttemptsAllowed: 5,
 //     rollbackPerformed: rollbackPerformed,
 //     rollbackReason: rollbackReason
 //   },
@@ -958,7 +988,7 @@ ACTION: {
 | Root Cause Identification | Root cause clearly stated and evidence-based | Level 3+ semantic |
 | Strategy Appropriateness | Healing strategy matches error type | 100% |
 | Verification Integrity | Test re-run performed if healing applied | 100% |
-| Max Attempts Enforcement | Healing stops at 3 attempts maximum | 100% |
+| Max Attempts Enforcement | Healing stops at 5 attempts maximum | 100% |
 | Rollback Capability | Backup created before modifications | 100% |
 | Memory Storage | ErrorSolution entity stored with verification | 100% |
 
@@ -989,7 +1019,7 @@ ACTION: {
 - Store ErrorSolution entity with attempt information
 - Output comprehensive checkpoint with attempt tracking
 - Log all healing actions with rationale and attempt number
-- Enforce max attempts limit (3)
+- Enforce max attempts limit (5)
 - Use safeStringify for JSON serialization
 - Include detailed error information and attempt status in learnings
 - Flag assertion changes for manual review
@@ -1008,14 +1038,14 @@ ACTION: {
 | Memory query failed | Continue with empty results, log warning | 1 | None (non-critical) |
 | Backup creation failed | Abort healing, throw error | 0 | Orchestration (critical) |
 | Healing strategy not found | Return FAILED status, store unknown error pattern | 0 | Orchestration |
-| Verification re-run failed | Perform rollback, return FAILED with attemptsRemaining | Handled by orchestration | Orchestration retries if attempts < 3 |
+| Verification re-run failed | Perform rollback, return FAILED with attemptsRemaining | Handled by orchestration | Orchestration retries if attempts < 5 |
 | Rollback failed | Log critical error, mark for manual intervention | 1 | Orchestration (critical) |
 | Memory storage failed | Retry once, continue if retry fails (non-critical) | 1 | None |
 
 **Retry Strategy:**
 - Healing agent does NOT retry internally
 - Agent performs single healing attempt, verifies, returns result
-- Orchestration handles retry loop (up to 3 total attempts)
+- Orchestration handles retry loop (up to 5 total attempts)
 - Each healing attempt gets fresh input with updated `healingAttemptCount`
 - Agent enforces max attempts by checking `healingAttemptCount > maxHealingAttempts` at start
 
@@ -1092,7 +1122,7 @@ ACTION: {
       "verificationStatus": "PASS"
     },
     "attemptsUsed": 1,
-    "maxAttemptsAllowed": 3,
+    "maxAttemptsAllowed": 5,
     "rollbackPerformed": false
   },
   "validation": {
@@ -1138,7 +1168,7 @@ Verification:
 ✅ Verification status: PASS
 ✅ Rollback performed: no
 
-Attempts: 1/3
+Attempts: 1/5
 
 Validation Score: 100/100
 Issues: NONE

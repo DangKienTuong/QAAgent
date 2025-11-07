@@ -82,7 +82,8 @@ Key enhancement: Static HTML analysis can miss duplicate elements rendered clien
 //   }>;
 //   
 //   browserVerification: {
-//     executed: <BOOLEAN>;
+//     executed: <BOOLEAN>;  // MUST be true - Step 4B is MANDATORY, not optional
+//     executionError?: "<ERROR_MESSAGE>";  // Only if browser MCP tools unavailable - triggers GATE failure
 //     url: "<TARGET_URL>";
 //     totalElements: <NUMBER>;
 //     uniquePrimaryLocators: <NUMBER>;
@@ -701,11 +702,15 @@ Sequential thinking MUST include these challenge questions:
 // logger.info('Step 4B: Live browser verification with Playwright-MCP')
 //
 // // Step 1: Install browser if needed (first-time setup)
+// // CRITICAL: Browser verification is MANDATORY - failure must stop execution
 // try {
 //   logger.info('Ensuring browser is installed...')
 //   await mcp_microsoft_pla_browser_install()
 // } catch (error) {
-//   logger.warn('Browser installation check: ${error.message}')
+//   logger.error(`❌ CRITICAL: Browser installation failed: ${error.message}`)
+//   logger.error('Step 4B is MANDATORY for locator uniqueness validation')
+//   logger.error('REMEDIATION: Ensure mcp_microsoft_pla_browser MCP tools are installed and accessible')
+//   throw new Error(`Step 4B failed: Browser MCP tools unavailable - ${error.message}`)
 // }
 //
 // // Step 2: Navigate to target URL
@@ -1101,6 +1106,12 @@ After Step 4B, MUST verify:
 //   issues.push(`${lowConfidenceCount} elements (${Math.round(lowConfidenceCount / allScores.length * 100)}%) have low confidence`)
 // }
 //
+// // CRITICAL: Enforce Step 4B browser verification execution (MANDATORY)
+// if (!browserVerificationResult || browserVerificationResult.executed !== true) {
+//   logger.error('❌ CRITICAL: Step 4B browser verification not executed')
+//   issues.push('Step 4B browser verification MANDATORY but not executed - locator uniqueness cannot be guaranteed without live DOM verification')
+// }
+//
 // const validationResult = {
 //   passed: issues.length === 0,
 //   score: avgConfidence,
@@ -1232,10 +1243,12 @@ Deliverables:
 - Special components: {count}
 - State file: .state/{domain}-{feature}-gate2-output.json
 
-MISSING STEPS: NONE
+MISSING STEPS: {if browserVerification.executed === false, output "Step 4B (CRITICAL - Browser verification MANDATORY for locator uniqueness)", else "NONE"}
 
-ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
+ACTION: {if browserVerification.executed === false, output "GATE 2 FAILED - Install mcp_microsoft_pla_browser MCP tools and re-run", else "GATE 2 complete - ready for GATE 3 (POM Generator)"}
 ```
+
+**CRITICAL ENFORCEMENT:** If browserVerification.executed === false, validation MUST fail (validationResult.passed = false), and checkpoint MUST show MISSING STEPS and FAILED status. This ensures Step 4B cannot be skipped without gate failure.
 
 ---
 
@@ -1248,9 +1261,11 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 | Average Confidence | Mean confidence across primary locators | ≥ 70% |
 | Low Confidence Count | Elements with confidence < 70% | ≤ 20% |
 | Fallback Coverage | All elements have 3 locator strategies | 100% |
-| Browser Verification | All locators verified in live DOM | 100% |
+| Browser Verification Executed | browserVerification.executed MUST be true | 100% (MANDATORY) |
 | Uniqueness in Live DOM | Primary locator matches exactly 1 element | ≥ 80% |
 | Semantic | Locators make sense for element type | Level 3+ |
+
+**CRITICAL:** Browser Verification Executed rule is non-negotiable. If browserVerification.executed !== true, validation MUST fail regardless of other metrics.
 
 ---
 
@@ -1258,7 +1273,7 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 
 **NEVER:**
 - Skip memory query (Step 0B)
-- Skip browser verification (Step 4B) - critical for uniqueness validation
+- Skip browser verification (Step 4B) - MANDATORY, not optional - gate MUST fail if browser tools unavailable
 - Skip confidence scoring (Step 5)
 - Skip storing learnings (Step 8B)
 - Return executable TypeScript code
@@ -1269,12 +1284,14 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 - Generate locators without HTML validation
 - Trust static HTML count without live DOM verification
 - Proceed with 0 unique locators for any element
+- Allow browserVerification.executed to be false in output (throws validation error)
+- Continue execution if browser MCP tools fail to install (must throw error)
 
 **ALWAYS:**
 - Query memory before main execution (Step 0B)
 - Use sequential thinking if 3+ test steps (Step 1) - increased to 5 thoughts for browser verification
 - Generate 3 locator strategies per element (primary + 2 fallbacks)
-- Verify locators in live browser (Step 4B) - mandatory for SPAs and dynamic content
+- Execute Step 4B browser verification - MANDATORY - throw error if browser tools unavailable, do NOT continue with static analysis only
 - Navigate to live page and capture accessibility snapshot
 - Count element matches using browser evaluate
 - Adjust confidence scores based on live DOM verification
@@ -1284,9 +1301,11 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 - Calculate confidence scores for all locators (Step 5)
 - Detect special components (react-select, datepickers, file uploads)
 - Validate average confidence ≥ 70%
+- Validate browserVerification.executed === true in Step 7 (fail validation if false)
 - Write state file before memory storage (Step 8A before 8B)
 - Store learnings with verification (Step 8B)
 - Output checkpoint showing all completed steps including browser verification (Step 9)
+- Mark gate as FAILED in checkpoint if Step 4B not executed
 - Use static placeholders in examples
 
 ---
@@ -1323,7 +1342,7 @@ TypeScript code in instructions = documentation only. All examples show structur
 | Low confidence (< 50%) | Log critical warning | 0 | Recommend manual review |
 | Memory query failure | Continue with new patterns | 1 | Log warning |
 | State file write failure | Retry with error details | 3 | Orchestration |
-| Browser verification failure | Log warning, use static analysis only | 1 | Continue |
+| Browser MCP tools unavailable | Fail gate immediately with error | 0 | Orchestration - ensure mcp_microsoft_pla_browser tools installed |
 
 ---
 

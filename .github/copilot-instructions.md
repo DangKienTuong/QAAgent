@@ -790,9 +790,15 @@ flowchart TD
 
 **Test Execution Overview:**
 
-Execute generated test specification up to 3 times. Monitor for consecutive failures with identical error patterns. If healing criteria met (2 consecutive failures, same error, same tests, attempts < 3), trigger healing agent using Agent Delegation Protocol below.
+Execute generated test specification up to 5 times. Monitor for consecutive failures with identical error patterns. If healing criteria met (2 consecutive failures, same error, same tests, attempts < 5), **AUTOMATICALLY trigger healing agent** - this is MANDATORY, not optional.
 
-**CRITICAL: When healing is triggered, MUST follow "Healing Invocation (Following Agent Delegation Protocol)" section below. Do NOT apply healing fixes directly from orchestration.**
+**🚨 CRITICAL: HEALING IS MANDATORY WHEN CRITERIA MET**
+
+- **Healing trigger is automatic, not optional** - do NOT skip with "demonstration" or "time" reasons
+- **When healing is triggered, MUST follow "Healing Invocation (Following Agent Delegation Protocol)" section below**
+- **Do NOT apply healing fixes directly from orchestration** - delegate to healing agent
+- **Cannot proceed to GATE 5 without:** Healing invoked OR max attempts exhausted
+- **See enforcement rules at end of this section** for validation checkpoint
 
 **Healing Invocation (Following Agent Delegation Protocol):**
 
@@ -809,7 +815,7 @@ Execute generated test specification up to 3 times. Monitor for consecutive fail
      "browserSnapshot": ".state/browser-snapshot.json",
      "pageAnalysis": ".state/page-analysis.json",
      "healingAttemptCount": <CURRENT_ATTEMPT>,
-     "maxHealingAttempts": 3
+     "maxHealingAttempts": 5
    }
    ```
 
@@ -838,16 +844,16 @@ Execute generated test specification up to 3 times. Monitor for consecutive fail
 
 7. **Decision Logic:**
    - If SUCCESS: Continue to next test run iteration to verify fix
-   - If FAILED and attempts < 3: Continue loop, trigger healing again on next failure
-   - If FAILED and attempts = 3: Exit loop, report failure to user
+   - If FAILED and attempts < 5: Continue loop, trigger healing again on next failure
+   - If FAILED and attempts = 5: Exit loop, report failure to user
 
 8. **Track Healing Metrics:** Store attempt count, success/failure for each healing
 
 **Healing Retry Logic:**
 
-- **Trigger Condition:** 2 consecutive failures with same error AND attempts < 3
+- **Trigger Condition:** 2 consecutive failures with same error AND attempts < 5
 - **Retry Strategy:** After each failed healing, allow test to run again and re-trigger healing if still failing
-- **Max Attempts:** 3 healing attempts total per test
+- **Max Attempts:** 5 healing attempts total per test
 - **Exit Conditions:**
   - Test passes (SUCCESS)
   - Max healing attempts reached without success (FAILED - manual review required)
@@ -862,8 +868,8 @@ The following TypeScript code shows the LOGICAL FLOW only. This is NON-EXECUTABL
 ```typescript
 // Example execution loop with healing retry (NON-EXECUTABLE REFERENCE):
 // const results = []
-// const maxRuns = 3
-// const maxHealingAttempts = 3
+// const maxRuns = 5
+// const maxHealingAttempts = 5
 // let healingAttemptCount = 0
 // let testHealed = false
 //
@@ -946,6 +952,60 @@ The following TypeScript code shows the LOGICAL FLOW only. This is NON-EXECUTABL
 // }
 ```
 
+**🚨 CRITICAL: MANDATORY HEALING TRIGGER ENFORCEMENT**
+
+The above `decideShouldHeal()` function is NOT just a recommendation - it is a **MANDATORY TRIGGER CONDITION**.
+
+**Enforcement Rules (NON-NEGOTIABLE):**
+
+1. **If `decideShouldHeal()` returns `true`:**
+   - ✅ MUST execute "Healing Invocation (Following Agent Delegation Protocol)" section immediately
+   - ❌ CANNOT skip healing with reasons like "demonstration constraints", "time limits", or "proceed to next gate"
+   - ❌ CANNOT transition to GATE 5 without healing invocation OR max attempts reached
+
+2. **Only 2 valid states to proceed to GATE 5:**
+   - ✅ State A: Healing invoked and completed (success or failure documented in state file)
+   - ✅ State B: Max healing attempts (5) reached with all attempts exhausted
+   - ❌ State C (INVALID): Healing criteria met but healing skipped - **THIS IS PIPELINE FAILURE**
+
+3. **Post-Execution Validation Checkpoint:**
+   ```typescript
+   // After test execution loop, BEFORE proceeding to GATE 5:
+   // const finalHealingCheck = decideShouldHeal(results, healingAttemptCount, maxHealingAttempts)
+   // 
+   // if (finalHealingCheck === true) {
+   //   throw new Error(`
+   //     PIPELINE FAILURE: Healing criteria met but healing not invoked
+   //     - Consecutive failures: ${results.slice(-2).every(r => r.status === 'FAIL')}
+   //     - Same error: ${results.slice(-2)[0].error === results.slice(-2)[1].error}
+   //     - Attempts remaining: ${maxHealingAttempts - healingAttemptCount}
+   //     
+   //     ACTION REQUIRED: Execute healing invocation immediately. Cannot proceed to GATE 5.
+   //   `)
+   // }
+   // 
+   // logger.info(`✅ Healing validation passed: ${healingAttemptCount > 0 ? `${healingAttemptCount} healing attempt(s) completed` : 'No healing required - all tests passed'}`)
+   ```
+
+4. **Why This Enforcement Matters:**
+   - Healing is core autonomous capability, not optional feature
+   - Skipping healing when criteria met defeats purpose of self-healing pipeline
+   - Consecutive identical failures = systematic issue requiring intervention
+   - "Demonstration" or "time constraints" are NOT valid skip reasons
+
+**Valid Skip Reasons (ONLY these):**
+- ✅ All tests passed (no failures)
+- ✅ Failures are intermittent/flaky (not consecutive with same error)
+- ✅ Max healing attempts already exhausted (5/5 completed)
+- ✅ Network/environment failures (marked as non-healable error types)
+
+**Invalid Skip Reasons (NEVER allowed):**
+- ❌ "For demonstration purposes"
+- ❌ "To save time"
+- ❌ "Proceeding to next gate for completeness"
+- ❌ "Manual intervention preferred over automated healing"
+
+---
 
 ### GATE 5: Learning & Knowledge Storage
 
