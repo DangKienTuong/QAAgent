@@ -63,11 +63,6 @@ export default defineConfig({
     },
     ignoreHTTPSErrors: true,
     acceptDownloads: true,
-    proxy: {
-      server: 'http://rb-proxy-de.bosch.com:8080',
-      username: 'DTG4HC',
-      password: ''
-    },
   },
   projects: PLAYWRIGHT_PROJECT_CONFIG
 });
