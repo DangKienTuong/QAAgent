@@ -44,6 +44,8 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 ### Pre-Gate Checkpoint (MANDATORY before EVERY gate)
 
+**This checkpoint is now integrated into the Agent Invocation Pattern below as STEP 0.**
+
 **Before executing ANY gate, you MUST explicitly verify:**
 
 ```
@@ -59,9 +61,32 @@ CHECKPOINT FAILED → STOP: Re-read Agent Delegation Protocol section
 
 **If you skip this checkpoint, you WILL violate the Agent Delegation Protocol.**
 
+**See "Agent Invocation Pattern" section below for complete STEP 0-7 workflow.**
+
 ---
 
 ### Agent Invocation Pattern (MANDATORY for ALL gates)
+
+**STEP 0 (MANDATORY): Pre-Gate Checkpoint - Execute Before ANY Gate**
+
+Before proceeding with agent invocation, you MUST explicitly verify the following checkpoint:
+
+```
+PRE-GATE CHECKPOINT FOR GATE N:
+□ Have I announced delegation to the specific agent?
+□ Have I confirmed I will re-read ALL 7 instruction files? (rules, critical_thinking, mcp_integration, memory_patterns, state_management, data_driven if applicable, agent-specific)
+□ Have I confirmed this gate requires FULL agent execution regardless of data availability in context?
+□ Am I avoiding the temptation to 'shortcut' because I have browser snapshot/cached HTML/previous outputs?
+
+CHECKPOINT PASSED → Proceed with Agent Invocation Pattern
+CHECKPOINT FAILED → STOP: Re-read Agent Delegation Protocol section
+```
+
+**If you skip this checkpoint, you WILL violate the Agent Delegation Protocol.**
+
+---
+
+**STEP 1-7: Agent Invocation Steps (After Checkpoint Passed)**
 
 ```
 1. **Prepare Input:** Write .agent file with structured input data
