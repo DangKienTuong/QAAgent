@@ -39,7 +39,9 @@ Key enhancement: Static HTML analysis can miss duplicate elements rendered clien
 //         target: "<TARGET>";
 //       }>;
 //     }>;
-//     cachedHTML: "<PATH_TO_HTML>";
+//     cachedHTML: "<PATH_TO_HTML>";              // Path to static HTML (e.g., ".state/form-elements.json")
+//     browserSnapshot?: "<PATH_TO_SNAPSHOT>";     // Path to Playwright snapshot (e.g., ".state/browser-snapshot.json")
+//     pageAnalysis?: "<PATH_TO_ANALYSIS>";        // Path to page analysis (e.g., ".state/page-analysis.json")
 //     isSPA?: <BOOLEAN>;
 //   };
 // }
@@ -169,16 +171,20 @@ flowchart TD
 // const metadata = input.metadata
 // const testCasesPath = input.testCases
 // const cachedHTML = input.cachedHTML
+// const browserSnapshot = input.browserSnapshot
+// const pageAnalysis = input.pageAnalysis
 // const isSPA = input.isSPA || false
 //
 // logger.info(`Input loaded: domain=${metadata.domain}, feature=${metadata.feature}`)
 // logger.info(`Test cases source: ${typeof testCasesPath === 'string' ? testCasesPath : 'direct object'}`)
 // logger.info(`Cached HTML: ${cachedHTML}`)
+// logger.info(`Browser snapshot: ${browserSnapshot || 'not provided'}`)
+// logger.info(`Page analysis: ${pageAnalysis || 'not provided'}`)
 ```
 
 **Output:** Natural language summary like:
 ```
-"I read the input from dom_analysis.agent file. Metadata: domain=demoqa_com, feature=student_registration. Test cases will be loaded from .state/demoqa_com-student_registration-gate1-output.json. Cached HTML: .state/form-elements.json. SPA mode: false."
+"I read the input from dom_analysis.agent file. Metadata: domain=demoqa_com, feature=student_registration. Test cases will be loaded from .state/demoqa_com-student_registration-gate1-output.json. Cached HTML: .state/form-elements.json. Browser snapshot: .state/browser-snapshot.json. Page analysis: .state/page-analysis.json. SPA mode: true."
 ```
 
 ### Step 0B: Query Memory for Known Locators (MANDATORY)
@@ -280,7 +286,7 @@ flowchart TD
 **Validation Checks:**
 
 1. **Required fields:** metadata, testCases, cachedHTML
-2. **Data validity:** Parse cachedHTML file using safeParse from json-utils
+2. **Data validity:** Parse cachedHTML, browserSnapshot, and pageAnalysis files using safeParse from json-utils
 3. **Test cases structure:** Verify testSteps array exists
 4. **Resource availability:** Verify memory system accessible
 
@@ -289,6 +295,10 @@ flowchart TD
 Pre-flight validation failed for GATE 2:
 ✗ Cached HTML file missing: .state/form-elements.json
   → Remediation: Ensure PRE-PROCESSING completed successfully
+✗ Browser snapshot file missing: .state/browser-snapshot.json
+  → Remediation: Ensure PRE-PROCESSING completed successfully with Playwright fetch
+✗ Page analysis file missing: .state/page-analysis.json
+  → Remediation: Ensure PRE-PROCESSING completed successfully with page detection
 ✗ Test cases missing testSteps array
   → Remediation: Verify GATE 1 output structure
 ```
@@ -396,7 +406,7 @@ Sequential thinking MUST include these challenge questions:
 
 ### Step 2: Parse HTML and Extract Interactive Elements WITH Critical Validation
 
-**Purpose:** Extract all interactive elements from cached HTML WITH MANDATORY skepticism about completeness.
+**Purpose:** Extract all interactive elements from cached HTML and browser snapshot WITH MANDATORY skepticism about completeness.
 
 **When:** After Step 1 (or Step 0E if sequential thinking skipped).
 
@@ -408,16 +418,45 @@ Sequential thinking MUST include these challenge questions:
 // Example HTML parsing WITH skepticism (non-executable):
 // logger.info('Step 2: Parsing HTML and extracting interactive elements with critical validation')
 //
+// // Load static HTML
 // const htmlContent = await read_file(cachedHTML, 1, 100000)
 // const htmlData = JSON.parse(htmlContent)
 //
-// // STEP 1: Extract elements
-// const extractedElements = {
-//   inputs: parseInputElements(htmlData.html),
-//   buttons: parseButtonElements(htmlData.html),
-//   selects: parseSelectElements(htmlData.html),
-//   textareas: parseTextareaElements(htmlData.html)
+// // Load browser snapshot (if available)
+// let snapshotData = null
+// if (browserSnapshot) {
+//   const snapshotContent = await read_file(browserSnapshot, 1, 100000)
+//   snapshotData = JSON.parse(snapshotContent)
 // }
+//
+// // Load page analysis to determine best source
+// let pageAnalysisData = null
+// if (pageAnalysis) {
+//   const analysisContent = await read_file(pageAnalysis, 1, 10000)
+//   pageAnalysisData = JSON.parse(analysisContent)
+// }
+//
+// // Determine which source to prioritize
+// const isSPAFromAnalysis = pageAnalysisData?.isSPA || false
+// const hasDynamicContent = pageAnalysisData?.dynamicContentDetected || false
+// const preferSnapshot = (isSPAFromAnalysis || hasDynamicContent) && snapshotData !== null
+//
+// logger.info(`Data source selection: preferSnapshot=${preferSnapshot} (SPA: ${isSPAFromAnalysis}, Dynamic: ${hasDynamicContent})`)
+//
+// // STEP 1: Extract elements from preferred source
+// const extractedElements = preferSnapshot ? 
+//   {
+//     inputs: parseSnapshotElements(snapshotData.snapshot, 'textbox'),
+//     buttons: parseSnapshotElements(snapshotData.snapshot, 'button'),
+//     selects: parseSnapshotElements(snapshotData.snapshot, 'combobox'),
+//     textareas: parseSnapshotElements(snapshotData.snapshot, 'textbox')
+//   } : 
+//   {
+//     inputs: parseInputElements(htmlData.html),
+//     buttons: parseButtonElements(htmlData.html),
+//     selects: parseSelectElements(htmlData.html),
+//     textareas: parseTextareaElements(htmlData.html)
+//   }
 //
 // const totalExtracted = 
 //   extractedElements.inputs.length + 
@@ -429,19 +468,19 @@ Sequential thinking MUST include these challenge questions:
 // const expectedElementsFromTestSteps = allTestSteps.length
 // const extractionRatio = totalExtracted / expectedElementsFromTestSteps
 //
-// logger.info(`Extracted ${totalExtracted} elements for ${expectedElementsFromTestSteps} test steps (ratio: ${Math.round(extractionRatio * 100)}%)`)
+// logger.info(`Extracted ${totalExtracted} elements for ${expectedElementsFromTestSteps} test steps (ratio: ${Math.round(extractionRatio * 100)}%) from ${preferSnapshot ? 'browser snapshot' : 'static HTML'}`)
 //
 // // Critical thinking checkpoint
 // if (extractionRatio < 0.5) {
 //   logger.warn(`❓ CHALLENGE: Why extraction ratio so low (${Math.round(extractionRatio * 100)}%)?`)
 //   logger.warn(`→ ANALYSIS: Possible causes: 1) SPA with client-side rendering, 2) Elements in shadow DOM, 3) Elements in iframes, 4) HTML snapshot taken before full page load`)
-//   logger.warn(`→ MITIGATION: Proceeding with available elements. Locators may need manual adjustment. Flag test steps without matching elements.`)
+//   logger.warn(`→ MITIGATION: ${preferSnapshot ? 'Already using browser snapshot - elements may be in shadow DOM or iframes' : 'Try browser snapshot if available'}. Proceeding with available elements. Locators may need manual adjustment. Flag test steps without matching elements.`)
 // }
 //
-// if (htmlData.detectedFeatures?.isSPA && totalExtracted < 5) {
-//   logger.error(`❓ CHALLENGE: SPA detected but only ${totalExtracted} elements found - HTML likely incomplete`)
+// if (isSPAFromAnalysis && totalExtracted < 5 && !preferSnapshot) {
+//   logger.error(`❓ CHALLENGE: SPA detected but only ${totalExtracted} elements found in static HTML`)
 //   logger.error(`→ ANALYSIS: React/Vue/Angular apps render content client-side. Static HTML is skeleton only.`)
-//   logger.error(`→ MITIGATION: CRITICAL WARNING - Recommend re-fetching HTML after JavaScript execution OR using Playwright's page.content() for full DOM.`)
+//   logger.error(`→ MITIGATION: SWITCHING to browser snapshot data which captures rendered DOM.`)
 // }
 //
 // // STEP 3: Validate element types match test steps

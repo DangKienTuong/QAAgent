@@ -78,7 +78,9 @@ All TypeScript/JavaScript examples are **structural templates** showing logic pa
 //       type: "single" | "data-driven",
 //       dataFile: "<PATH_TO_DATA_JSON>"  // If data-driven
 //     },
-//     cachedHTML: "<PATH_OR_NULL>",  // May need to re-fetch
+//     cachedHTML: "<PATH_OR_NULL>",  // Path to static HTML (may need to re-fetch)
+//     browserSnapshot: "<PATH_OR_NULL>",  // Path to Playwright snapshot
+//     pageAnalysis: "<PATH_OR_NULL>",  // Path to page analysis
 //     healingAttemptCount: <CURRENT_ATTEMPT_NUMBER>,  // Current healing attempt (1, 2, or 3)
 //     maxHealingAttempts: 3  // Maximum allowed healing attempts
 //   }
@@ -455,20 +457,56 @@ Sequential thinking MUST include these challenge questions:
 
 ```typescript
 // Example locator healing (non-executable):
-// healLocatorError(failedLocator, pageObjectFile, cachedHTML) {
-//   // Re-fetch webpage if cached HTML is stale
-//   const freshHTML = cachedHTML ? cachedHTML : fetch_webpage({ 
-//     urls: [metadata.url],
-//     query: "Find alternatives for failed locator '{failedLocator}'. Look for elements with similar text, role, attributes."
-//   })
+// healLocatorError(failedLocator, pageObjectFile, cachedHTML, browserSnapshot, pageAnalysis) {
+//   // Determine if re-fetch needed based on page analysis
+//   let pageAnalysisData = null
+//   if (pageAnalysis) {
+//     const analysisContent = read_file(pageAnalysis, 1, 10000)
+//     pageAnalysisData = JSON.parse(analysisContent)
+//   }
 //   
-//   // Search for updated locator
-//   const alternatives = findElementAlternatives(freshHTML, failedLocator)
+//   const isSPA = pageAnalysisData?.isSPA || false
+//   const preferLiveFetch = isSPA || !browserSnapshot
+//   
+//   // Re-fetch webpage using both methods for comparison
+//   let freshHTML = null
+//   let freshSnapshot = null
+//   
+//   if (!cachedHTML || preferLiveFetch) {
+//     // Static HTML fetch
+//     freshHTML = fetch_webpage({ 
+//       urls: [metadata.url],
+//       query: "Find alternatives for failed locator '{failedLocator}'. Look for elements with similar text, role, attributes. Extract ALL form elements with IDs, classes, data-testid, ARIA labels."
+//     })
+//     
+//     // Playwright browser snapshot
+//     mcp_microsoft_pla_browser_navigate({ url: metadata.url })
+//     mcp_microsoft_pla_browser_wait_for({ time: 2 })
+//     freshSnapshot = mcp_microsoft_pla_browser_snapshot()
+//     mcp_microsoft_pla_browser_close()
+//   } else {
+//     // Use cached data
+//     const htmlContent = read_file(cachedHTML, 1, 100000)
+//     freshHTML = JSON.parse(htmlContent)
+//     
+//     if (browserSnapshot) {
+//       const snapshotContent = read_file(browserSnapshot, 1, 100000)
+//       freshSnapshot = JSON.parse(snapshotContent)
+//     }
+//   }
+//   
+//   // Search for updated locator from both sources
+//   const htmlAlternatives = findElementAlternatives(freshHTML, failedLocator)
+//   const snapshotAlternatives = freshSnapshot ? findSnapshotAlternatives(freshSnapshot.snapshot, failedLocator) : []
+//   
+//   // Combine and deduplicate alternatives
+//   const allAlternatives = [...htmlAlternatives, ...snapshotAlternatives]
+//     .sort((a, b) => b.confidence - a.confidence)
 //   
 //   // Select best alternative (highest confidence)
-//   const bestAlternative = alternatives.sort((a, b) => b.confidence - a.confidence)[0]
+//   const bestAlternative = allAlternatives[0]
 //   
-//   if (bestAlternative.confidence >= 0.70) {
+//   if (bestAlternative && bestAlternative.confidence >= 0.70) {
 //     // Apply healing: update page object
 //     const pageObjectContent = read_file(pageObjectFile, 1, 10000)
 //     const updatedContent = pageObjectContent.replace(
@@ -485,17 +523,19 @@ Sequential thinking MUST include these challenge questions:
 //     return {
 //       healed: true,
 //       strategy: 'locator-update',
+//       dataSource: bestAlternative.source, // 'static-html' or 'browser-snapshot'
 //       changesApplied: [{
 //         file: pageObjectFile,
 //         changeType: 'locator',
 //         original: failedLocator,
 //         healed: bestAlternative.locator,
-//         rationale: `Locator not found. Updated to ${bestAlternative.type} with ${bestAlternative.confidence}% confidence.`
+//         rationale: `Locator not found. Updated to ${bestAlternative.type} from ${bestAlternative.source} with ${bestAlternative.confidence}% confidence.`
 //       }]
 //     }
 //   }
 //   
-//   return { healed: false, strategy: 'locator-update', reason: 'No suitable alternative found' }
+//   return { healed: false, strategy: 'locator-update', reason: 'No suitable alternative found in static HTML or browser snapshot' }
+// }
 // }
 ```
 

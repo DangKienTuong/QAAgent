@@ -43,7 +43,9 @@ Your role in the pipeline: Convert user stories and acceptance criteria (from Or
 //       seed?: <SEED_NUMBER>;              // For reproducible Faker data
 //       testData?: <DATA_OBJECT>;          // Specific test data for single case
 //     };
-//     cachedHTML?: "<PATH_TO_HTML>";       // Path to cached HTML file (e.g., ".state/form-elements.json")
+//     cachedHTML?: "<PATH_TO_HTML>";       // Path to static HTML file (e.g., ".state/form-elements.json")
+//     browserSnapshot?: "<PATH_TO_SNAPSHOT>";  // Path to Playwright snapshot (e.g., ".state/browser-snapshot.json")
+//     pageAnalysis?: "<PATH_TO_ANALYSIS>";     // Path to page analysis (e.g., ".state/page-analysis.json")
 //     constraints?: {
 //       maxLength?: { "<FIELD>": <NUMBER> };
 //       patterns?: { "<FIELD>": "<REGEX>" };
@@ -298,7 +300,7 @@ flowchart TD
 **Validation Checks:**
 
 1. **Required fields:** userStory, url, acceptanceCriteria (min 1), metadata
-2. **Data validity:** Parse cachedHTML file using safeParse from json-utils
+2. **Data validity:** Parse cachedHTML, browserSnapshot, and pageAnalysis files using safeParse from json-utils
 3. **Resource availability:** Verify memory system accessible
 
 **Error Message Format:**
@@ -308,6 +310,10 @@ Pre-flight validation failed for GATE 1:
   → Remediation: Provide valid user story in natural language
 ✗ Cached HTML file missing: .state/form-elements.json
   → Remediation: Ensure PRE-PROCESSING completed successfully
+✗ Browser snapshot file missing: .state/browser-snapshot.json
+  → Remediation: Ensure PRE-PROCESSING completed successfully with Playwright fetch
+✗ Page analysis file missing: .state/page-analysis.json
+  → Remediation: Ensure PRE-PROCESSING completed successfully with page detection
 ```
 
 ### Step 0E: Verify Pipeline State (MANDATORY)
@@ -441,7 +447,7 @@ Each sequential thinking session MUST include these challenge questions as part 
 
 **Reference:** See `critical_thinking_protocol.instructions.md` for semantic validation approach.
 
-**Purpose:** Parse HTML to extract validation rules for test data generation WITH MANDATORY skepticism about attribute reliability.
+**Purpose:** Parse HTML and browser snapshot to extract validation rules for test data generation WITH MANDATORY skepticism about attribute reliability.
 
 **When:** After Step 1, before test case generation.
 
@@ -453,9 +459,27 @@ Each sequential thinking session MUST include these challenge questions as part 
 // Example constraint extraction WITH skepticism (non-executable):
 // const fieldConstraints = {}
 //
+// // Load all available page data sources
 // if (cachedHTML) {
 //   const htmlContent = await read_file(cachedHTML, 1, 10000)
 //   const htmlData = JSON.parse(htmlContent)
+//   
+//   // Load browser snapshot for comparison
+//   let snapshotData = null
+//   if (browserSnapshot) {
+//     const snapshotContent = await read_file(browserSnapshot, 1, 10000)
+//     snapshotData = JSON.parse(snapshotContent)
+//   }
+//   
+//   // Load page analysis for SPA/auth detection
+//   let pageAnalysisData = null
+//   if (pageAnalysis) {
+//     const analysisContent = await read_file(pageAnalysis, 1, 10000)
+//     pageAnalysisData = JSON.parse(analysisContent)
+//   }
+//   
+//   // Use page analysis to determine best data source
+//   const preferSnapshot = pageAnalysisData?.isSPA || pageAnalysisData?.dynamicContentDetected
 //   
 //   htmlData.inputs.forEach(input => {
 //     // STEP 1: Extract attribute (as hint, not truth)
@@ -463,7 +487,8 @@ Each sequential thinking session MUST include these challenge questions as part 
 //       required: input.required || false,
 //       maxLength: input.maxlength ? parseInt(input.maxlength) : undefined,
 //       pattern: input.pattern || undefined,
-//       type: input.type || 'text'
+//       type: input.type || 'text',
+//       source: preferSnapshot ? 'browser-snapshot' : 'static-html'
 //     }
 //     
 //     // STEP 2: Challenge reliability (MANDATORY)

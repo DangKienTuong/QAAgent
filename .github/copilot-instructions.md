@@ -416,17 +416,89 @@ flowchart TD
    - Sanitize metadata: `domain`, `feature` (remove special chars, lowercase, max 50 chars)
    - Security checks: SQL injection, XSS patterns, command injection
 
-2. **Fetch Webpage:**
-   - Fetch once from `request.url`
-   - Cache HTML to `.state/form-elements.json`
-   - Detect SPA: check for `react|vue|angular|__NEXT_DATA__|__NUXT__`
-   - Detect auth: check for `login|signin|authenticate|401|403`
+2. **Fetch Webpage (Dual-Method Approach):**
+   
+   **Method 1: Built-in fetch_webpage tool**
+   - Fetch static HTML content from `request.url`
+   - Extract ALL interactive elements and attributes
+   - Cache to `.state/form-elements.json`
+   
+   **Method 2: Playwright browser automation**
+   - Navigate to `request.url` using `mcp_microsoft_pla_browser_navigate`
+   - Wait for page load: `mcp_microsoft_pla_browser_wait_for({ time: 2 })`
+   - Capture accessibility snapshot: `mcp_microsoft_pla_browser_snapshot()`
+   - Cache snapshot to `.state/browser-snapshot.json`
+   - Take screenshot for visual reference: `mcp_microsoft_pla_browser_take_screenshot({ filename: "<DOMAIN>-<FEATURE>-initial.png", fullPage: true })`
+   - Close browser after capture
+   
+   **Detection & Analysis:**
+   - Detect SPA: check for `react|vue|angular|__NEXT_DATA__|__NUXT__` in both HTML and snapshot
+   - Detect auth: check for `login|signin|authenticate|401|403` patterns
+   - Compare static HTML vs browser snapshot for dynamic content differences
+   - Store detection results in `.state/page-analysis.json`
 
 3. **Update Todo List:**
    - Mark PRE-PROCESSING completed
    - Set next gate (GATE 0 or GATE 1) to in-progress
 
-**Validation:** All required fields present, URL accessible, HTML size > 1KB
+**Validation:** All required fields present, URL accessible, HTML size > 1KB, snapshot captured successfully
+
+**Example Execution:**
+
+```typescript
+// Example dual-fetch pattern (non-executable):
+// // Method 1: Static HTML fetch
+// const staticHTML = fetch_webpage({
+//   urls: [request.url],
+//   query: "Extract ALL interactive elements: inputs (id, name, placeholder, type, maxLength, pattern, required), buttons (id, class, text, type), selects (id, options), links (href, text), textareas (id, placeholder). Include ALL attributes: IDs, classes, data-testid, data-*, ARIA labels, roles, placeholders, text content, form field constraints."
+// })
+//
+// create_file(
+//   `.state/form-elements.json`,
+//   JSON.stringify({ url: request.url, html: staticHTML, timestamp: "<TIMESTAMP_ISO8601>" }, null, 2)
+// )
+//
+// // Method 2: Playwright browser fetch
+// mcp_microsoft_pla_browser_navigate({ url: request.url })
+// mcp_microsoft_pla_browser_wait_for({ time: 2 })
+//
+// const browserSnapshot = mcp_microsoft_pla_browser_snapshot()
+//
+// create_file(
+//   `.state/browser-snapshot.json`,
+//   JSON.stringify({ url: request.url, snapshot: browserSnapshot, timestamp: "<TIMESTAMP_ISO8601>" }, null, 2)
+// )
+//
+// mcp_microsoft_pla_browser_take_screenshot({
+//   filename: `${metadata.domain}-${metadata.feature}-initial.png`,
+//   fullPage: true,
+//   type: "png"
+// })
+//
+// // Detection & Analysis
+// const isSPA = /react|vue|angular|__NEXT_DATA__|__NUXT__/i.test(staticHTML) || 
+//               /react|vue|angular|__NEXT_DATA__|__NUXT__/i.test(browserSnapshot.text)
+// const hasAuth = /login|signin|authenticate|401|403/i.test(staticHTML) ||
+//                /login|signin|authenticate/i.test(browserSnapshot.text)
+//
+// const pageAnalysis = {
+//   url: request.url,
+//   isSPA: isSPA,
+//   hasAuth: hasAuth,
+//   staticHTMLSize: staticHTML.length,
+//   snapshotElementCount: countElementsInSnapshot(browserSnapshot),
+//   dynamicContentDetected: staticHTML.length !== browserSnapshot.text.length,
+//   timestamp: "<TIMESTAMP_ISO8601>"
+// }
+//
+// create_file(
+//   `.state/page-analysis.json`,
+//   JSON.stringify(pageAnalysis, null, 2)
+// )
+//
+// // Close browser
+// mcp_microsoft_pla_browser_close()
+```
 
 ### GATE 0: Data Preparation (CONDITIONAL)
 
@@ -457,7 +529,9 @@ flowchart TD
      "url": "<URL>",
      "acceptanceCriteria": ["<AC_001>", ...],
      "dataRequirements": { type: "data-driven", count: 5, seed: <SEED> },
-     "cachedHTML": ".state/form-elements.json"
+     "cachedHTML": ".state/form-elements.json",
+     "browserSnapshot": ".state/browser-snapshot.json",
+     "pageAnalysis": ".state/page-analysis.json"
    }
    ```
 
@@ -510,6 +584,8 @@ flowchart TD
      "acceptanceCriteria": ["<AC_001>", ...],
      "dataRequirements": { type, dataFile },
      "cachedHTML": ".state/form-elements.json",
+     "browserSnapshot": ".state/browser-snapshot.json",
+     "pageAnalysis": ".state/page-analysis.json",
      "previousGate": ".state/{domain}-{feature}-gate0-output.json"
    }
    ```
@@ -521,7 +597,7 @@ flowchart TD
 
 3. **Load Agent Instructions:**
    ```
-   Read: .github/instructions/test_case_designer.agent.instructions.md (lines 1-500)
+   Read: .github/instructions/test_case_designer.agent.instructions.md (lines 1 to -1)
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
@@ -559,6 +635,8 @@ flowchart TD
      "url": "<URL>",
      "testCases": ".state/{domain}-{feature}-gate1-output.json",
      "cachedHTML": ".state/form-elements.json",
+     "browserSnapshot": ".state/browser-snapshot.json",
+     "pageAnalysis": ".state/page-analysis.json",
      "previousGate": ".state/{domain}-{feature}-gate1-output.json"
    }
    ```
@@ -570,7 +648,7 @@ flowchart TD
 
 3. **Load Agent Instructions:**
    ```
-   Read: .github/instructions/dom_analysis.agent.instructions.md (lines 1-400)
+   Read: .github/instructions/dom_analysis.agent.instructions.md (lines 1 to -1)
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
@@ -623,7 +701,7 @@ flowchart TD
 
 3. **Load Agent Instructions:**
    ```
-   Read: .github/instructions/pom_generator.agent.instructions.md (lines 1-500)
+   Read: .github/instructions/pom_generator.agent.instructions.md (lines 1 to -1)
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
@@ -754,6 +832,8 @@ flowchart TD
      "generatedCode": { pageObject, testSpec },
      "dataStrategy": { type, dataFile },
      "cachedHTML": ".state/form-elements.json",
+     "browserSnapshot": ".state/browser-snapshot.json",
+     "pageAnalysis": ".state/page-analysis.json",
      "healingAttemptCount": <CURRENT_ATTEMPT>,
      "maxHealingAttempts": 3
    }
@@ -767,6 +847,7 @@ flowchart TD
 3. **Load Agent Instructions:**
    ```
    Read: .github/instructions/test_healing.agent.instructions.md
+   (lines 1 to -1)
    ```
 
 4. **Execute Agent Steps (ALL MANDATORY):**
@@ -956,7 +1037,11 @@ ACTION: {status-specific action}
 - Skip todo list initialization (Step 1)
 - Skip pipeline state file creation (Step 2)
 - Execute gates in wrong order
-- Allow agents to fetch webpage independently (use cached HTML)
+- Allow agents to fetch webpage independently (must use cached files: form-elements.json, browser-snapshot.json, page-analysis.json)
+- Skip dual-method webpage fetch in PRE-PROCESSING (both static HTML and Playwright snapshot required)
+- Skip browser snapshot capture for SPA detection
+- Skip page analysis generation
+- Provide only cachedHTML to agents (must include browserSnapshot and pageAnalysis)
 - Skip todo updates after each gate
 - Skip memory storage in GATE 5
 - Skip final self-audit checkpoint
@@ -973,7 +1058,13 @@ ACTION: {status-specific action}
 - Query memory for automation patterns (Step 0)
 - Initialize todo list before gates (Step 1)
 - Create pipeline state file (Step 2)
-- Fetch webpage once in PRE-PROCESSING, cache for all agents
+- Fetch webpage using BOTH methods in PRE-PROCESSING:
+  - Method 1: Built-in fetch_webpage tool → `.state/form-elements.json`
+  - Method 2: Playwright browser automation → `.state/browser-snapshot.json` + screenshot
+- Generate page analysis file → `.state/page-analysis.json` (SPA detection, auth detection, dynamic content analysis)
+- Cache all three files for agents (form-elements.json, browser-snapshot.json, page-analysis.json)
+- Provide all three files to every agent that needs page data
+- Close Playwright browser after snapshot capture
 - Execute gates in sequence: PRE → 0? → 1 → 2 → 3 → 4 → 5 → FINAL
 - Validate agent output before proceeding
 - Update todo list after each gate
@@ -1045,7 +1136,9 @@ Create test script with steps:
 ## Dependencies
 
 **Orchestration Provides to Agents:**
-- `cachedHTML`: Pre-fetched webpage content
+- `cachedHTML`: Pre-fetched static webpage content (`.state/form-elements.json`)
+- `browserSnapshot`: Pre-fetched Playwright accessibility snapshot (`.state/browser-snapshot.json`)
+- `pageAnalysis`: Page detection results - SPA, auth, dynamic content (`.state/page-analysis.json`)
 - `metadata`: Sanitized domain + feature names
 - `dataStrategy`: Decision whether data-driven needed
 
