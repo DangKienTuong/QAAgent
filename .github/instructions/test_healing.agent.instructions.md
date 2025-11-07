@@ -391,12 +391,6 @@ Sequential thinking MUST include these challenge questions:
 // }
 ```
 
-**Critical Thinking Checkpoint 2:**
-
-❓ **Challenge:** Why could classification be correct but healing strategy still fail?
-→ **Analysis:** Classification identifies symptom category, not specific root cause. TimeoutError could be: slow network, wrong locator, element disabled, overlay blocking click
-→ **Mitigation:** Use classification as starting point, not final diagnosis. Apply sequential thinking to identify specific root cause within category
-
 ### Step 3: Analyze Failure Pattern
 
 **Pattern Detection:**
@@ -444,12 +438,6 @@ Sequential thinking MUST include these challenge questions:
 //   return { pattern: 'unknown', confidence: 0.50 }
 // }
 ```
-
-**Critical Thinking Checkpoint 3:**
-
-❓ **Challenge:** Why could "consistent failure" pattern be misleading?
-→ **Analysis:** Test might fail consistently because it's run in same environment (cached state), same data (seed not changed), same network conditions (all local runs)
-→ **Mitigation:** Check if environment varied across runs, verify data variations, consider external factors before concluding "systematic" issue
 
 ### Step 4: Apply Healing Strategy
 
@@ -631,12 +619,6 @@ Sequential thinking MUST include these challenge questions:
 //   return { healed: false, reason: 'Could not determine data correction' }
 // }
 ```
-
-**Critical Thinking Checkpoint 4:**
-
-❓ **Challenge:** Why could healing strategy succeed technically but mask underlying bug?
-→ **Analysis:** Updating expected value to match wrong behavior "passes" test but doesn't fix application bug. Adding .first() resolves strict mode but may select wrong element if multiple visible.
-→ **Mitigation:** Always log healing actions with "WARNING: Verify application behavior is correct" flag. Store rationale for manual review. Don't auto-heal assertion changes without human review.
 
 ### Step 5: Verify Healing & Enforce Max Attempts
 

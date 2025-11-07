@@ -655,12 +655,6 @@ Sequential thinking MUST include these challenge questions:
 
 **Solution:** Use Playwright-MCP to navigate to live page, take accessibility snapshot, and verify each locator returns exactly 1 element.
 
-**Critical Thinking Checkpoint:**
-
-**❓ Challenge:** Why could static HTML show 1 occurrence but live DOM show multiple?
-- → **Analysis:** Client-side frameworks clone elements, dynamic lists render after load, modals/dialogs add duplicate buttons, pagination loads more elements
-- → **Mitigation:** Navigate to live page, capture accessibility snapshot, use browser evaluate to count matches for each locator
-
 **Execution:**
 
 ```typescript
@@ -896,12 +890,6 @@ After Step 4B, MUST verify:
 **Purpose:** Score locator reliability using uniqueness, stability, and specificity (now enhanced with live browser verification data).
 
 **When:** After Step 4.
-
-**Critical Thinking Checkpoint:**
-
-**❓ Challenge:** Why could simple occurrence counting be misleading?
-- → **Analysis:** Element may appear once in HTML but multiple times after client-side rendering (SPA), element may be unique now but not after dynamic content loads
-- → **Mitigation:** Check for SPA indicators, log warning if HTML is suspiciously small
 
 **Scoring Formula:**
 

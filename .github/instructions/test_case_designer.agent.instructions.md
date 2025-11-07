@@ -578,12 +578,6 @@ Each sequential thinking session MUST include these challenge questions as part 
 
 **Minimum:** 5 test cases (3 valid, 2 invalid)
 
-**Critical Thinking Checkpoint:**
-
-**❓ Challenge:** Why could Faker-generated data fail real validation?
-- → **Analysis:** Faker data is random, may not match business rules (e.g., valid phone format but wrong country code)
-- → **Mitigation:** Validate generated data against constraints, adjust patterns to match business rules, test edge cases explicitly
-
 **Structure:**
 
 ```typescript
@@ -652,12 +646,6 @@ Each sequential thinking session MUST include these challenge questions as part 
 
 **Format:** `TC_001`, `TC_002`, etc. (3-digit padding)
 
-**Critical Thinking Checkpoint:**
-
-**❓ Challenge:** Why could test IDs collide with existing tests?
-- → **Analysis:** Multiple test runs, manual tests, shared test suite
-- → **Mitigation:** Query memory for existing test IDs in domain+feature, start from highest existing ID + 1
-
 **Execution:**
 
 ```typescript
@@ -705,12 +693,6 @@ Each sequential thinking session MUST include these challenge questions as part 
 //   return hasNestedData || hasArrayData || dataStrategy.totalCases >= 5
 // }
 ```
-
-**Critical Thinking Checkpoint:**
-
-**❓ Challenge:** Why generate TypeScript models if JSON data already has structure?
-- → **Analysis:** Type safety in IDE, autocomplete for test authors, compile-time validation, documentation value
-- → **Mitigation:** Generate models for complex data only (nested objects, arrays, 5+ test cases)
 
 **Model Generation Pattern:**
 
@@ -872,12 +854,6 @@ ${Array.from(fields).map(field =>
 | Quality Score | (valid + boundary + negative) / total | ≥ 70% |
 | Completeness | All test cases have steps + assertions | 100% |
 | Uniqueness | No duplicate test IDs | 100% |
-
-**Critical Thinking Checkpoint:**
-
-**❓ Challenge:** Why could 100% AC coverage still miss critical scenarios?
-- → **Analysis:** ACs describe happy path, may not include error handling, security, performance
-- → **Mitigation:** Generate negative tests proactively, add boundary tests, document assumptions
 
 **Execution:**
 
@@ -1214,36 +1190,6 @@ npx playwright test
 **Environment variables in test output:**
 - Test Case Designer should generate test cases that work with all commands above
 - POM Generator will handle actual environment variable loading
-
-### Critical Thinking Checkpoint
-
-**❓ Challenge: Why do we need environment configuration at test case design phase?**
-
-**→ Analysis:**
-1. **Early Planning:** Test case structure affects how POM Generator creates page objects
-2. **URL Dependencies:** If test case describes "Navigate to https://hardcoded.com", POM will hardcode it
-3. **Data Coupling:** Hardcoded URLs in test cases → hardcoded URLs in page objects → can't run in other environments
-4. **Maintenance:** Changing environments requires editing test cases AND page objects
-
-**→ Mitigation:**
-- Design test cases with environment awareness from the start
-- Use `targetDetails` field to specify `process.env.BASE_URL` pattern
-- Flag environment-specific test cases (e.g., "only run in staging")
-- Document expected behavior per environment
-
-**❓ Challenge: What if user provides absolute URL but needs multi-environment support?**
-
-**→ Analysis:**
-1. **User Input:** URL = "https://demoqa.com/automation-practice-form"
-2. **Extracted Base:** BASE_URL = "https://demoqa.com"
-3. **Extracted Path:** PATH = "/automation-practice-form"
-4. **Test Case Output:** `targetDetails` = "process.env.BASE_URL + '/automation-practice-form'"
-
-**→ Solution:**
-- Parse provided URL to extract base domain and path
-- Store path in `targetDetails` with environment variable reference
-- Assume user wants multi-environment support (default behavior)
-- If URL must be hardcoded (rare), user can specify in requirements
 
 ---
 

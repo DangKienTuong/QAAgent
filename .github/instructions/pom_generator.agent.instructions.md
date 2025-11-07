@@ -565,36 +565,6 @@ Sequential thinking MUST include these challenge questions:
 // }
 ```
 
-**Critical Thinking Checkpoint 2:**
-
-❓ **Challenge:** Why use component composition instead of duplicating component logic in each page object?
-
-→ **Analysis:**
-1. **Duplication:** Copying header logic to every page object creates 10+ copies of same code
-2. **Maintenance:** Changing header structure requires updating all copies (error-prone)
-3. **Testing:** Component tested once, reused everywhere (higher quality)
-4. **Consistency:** Same header behavior across all pages
-
-❓ **Challenge:** What if component doesn't exist but test steps match pattern?
-
-→ **Analysis:** Detection logic may produce false positives (e.g., "title" in form label, not page title)
-
-→ **Mitigation:**
-- Require strong keyword matches (multiple criteria)
-- Log component detection decisions for transparency
-- Provide fallback: generate inline if component not suitable
-- Document when NOT to use component (single-use elements)
-
-❓ **Challenge:** How to handle component API changes (method renamed, signature changed)?
-
-→ **Analysis:** Generated code may break if component evolves
-
-→ **Mitigation:**
-- Store component version metadata in memory (reference latest working state)
-- Run compilation check after generation (catches API mismatches)
-- Include component usage examples in documentation
-- Update component detection patterns when components change
-
 ### Step 3: Select Test Pattern
 
 **Decision Matrix:**
@@ -774,17 +744,6 @@ Sequential thinking MUST include these challenge questions:
 //   }
 // }
 ```
-
-**Critical Thinking Checkpoint 3A:**
-
-❓ **Challenge:** Why use pageActions wrapper instead of direct Playwright API?
-→ **Analysis:** 
-  - **Consistency:** All page objects use same action patterns across the codebase
-  - **Error handling:** Centralized error enrichment via ErrorHandler in utilities layer
-  - **Timeout management:** Consistent timeout handling via timeout constants
-  - **Logging:** Automatic action logging via custom logger for better debugging
-  - **Maintenance:** Changes to action logic automatically update all page objects
-→ **Mitigation:** Always use pageActions wrapper for standard interactions (fill, click, select, getText, etc.). Only use direct Playwright API for special cases not covered by pageActions (e.g., keyboard.press for specific key combinations, advanced mouse operations, or iframe handling).
 
 **Special Component Handling:**
 
@@ -1036,23 +995,6 @@ flowchart TD
 | **Stabilization delay** | 1s | Allow DOM to settle | 47s |
 | **Fallback2 locator** | 5s | Low confidence - fail fast | 52s |
 | **Total worst-case** | ~52s | vs 90s with uniform timeouts | 42% faster |
-
-**Critical Thinking Checkpoint 3B:**
-
-❓ **Challenge:** Why reduce timeout for fallback locators instead of keeping uniform 30s?
-
-→ **Analysis:** If primary locator (95% confidence) fails after 30s, fallback locators (70-85% confidence) are unlikely to succeed with more waiting. Failure is likely due to wrong selector, not timing. Waiting another 60s (2 * 30s) wastes test execution time.
-
-→ **Mitigation:** Tiered timeouts balance reliability and performance. Primary gets full wait (element might be slow), fallbacks get reduced wait (if primary failed, likely selector issue not timing).
-
-❓ **Challenge:** What if element truly needs >30s to appear but primary locator is wrong?
-
-→ **Analysis:** Edge case where slow-loading element has incorrect primary locator. Fallback1 (10s timeout) might fail even though fallback2 (correct selector) would succeed with more time.
-
-→ **Mitigation:** 
-1. Pre-wait `ensurePageStable()` gives extra buffer for slow pages
-2. If this scenario detected in test healing (fallback2 succeeds after multiple attempts), promote fallback2 to primary
-3. Document in output: "Fallback2 succeeded - consider swapping with primary"
 
 ---
 
@@ -1308,12 +1250,6 @@ flowchart TD
 
 ---
 
-**Critical Thinking Checkpoint 2:**
-
-❓ **Challenge:** Why could self-healing fallback chain fail even with 3 locators?
-→ **Analysis:** All locators reference attributes that changed (redesign), element moved to iframe/shadow DOM, element dynamically loaded after page load
-→ **Mitigation:** Throw enriched error with diagnostic info (all attempted locators, recommendations like "check iframe/shadow DOM"), log detailed trace
-
 ### Step 4: Register Page Object in Fixture
 
 **Fixture Update Pattern:**
@@ -1420,12 +1356,6 @@ flowchart TD
 //   })
 // })
 ```
-
-**Critical Thinking Checkpoint 3:**
-
-❓ **Challenge:** Why could generated test spec compile successfully but fail at runtime?
-→ **Analysis:** Page object methods may not exist (typo in method name), data file path wrong (relative vs absolute), fixture not registered correctly
-→ **Mitigation:** Validate method names against generated page object, use absolute imports for data files, verify fixture registration syntax
 
 ### Step 6: Validate Compilation
 
@@ -1887,16 +1817,6 @@ NODE_ENV=prod npx playwright test
 //   return template
 // }
 ```
-
-### Critical Thinking Checkpoint
-
-**❓ Challenge:** Why use environment variables instead of hardcoded URLs?
-- → **Analysis:** Tests must run across dev/staging/prod without code changes, credentials differ per environment, URLs change during deployment
-- → **Mitigation:** Always use `process.env.BASE_URL`, load credentials from environment-specific JSON, log current environment in test output
-
-**❓ Challenge:** What if environment variable is missing?
-- → **Analysis:** Tests fail with unclear errors, page objects break during navigation
-- → **Mitigation:** Provide fallback values (`process.env.BASE_URL || 'http://localhost:3000'`), log environment configuration at test start, validate required variables in beforeAll hook
 
 ---
 
