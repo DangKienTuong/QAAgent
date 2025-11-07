@@ -1,27 +1,25 @@
 ---
 applyTo: '**/dom_analysis.agent'
-description: 'DOM Analysis Agent - Maps UI elements to robust locator strategies with MCP integration - References: TEMPLATE_GUIDE.md (architecture), critical_thinking_protocol.instructions.md (mandatory skepticism), mcp_integration_guide.instructions.md, state_management_guide.instructions.md'
+description: 'DOM Analysis Agent - Maps UI elements to robust locator strategies with MCP integration'
 ---
-
-<!-- FILE LENGTH: 1158 lines | MANDATORY STEPS: Step 0A-0E, Step 1-9 | READ COMPLETE FILE BEFORE EXECUTION -->
 
 # DOM ANALYSIS AGENT
 
 ## Purpose
 
-You are the **DOM Analysis Agent** - responsible for mapping logical test actions (e.g., "Click login button") to robust web element selectors (e.g., `#loginBtn`, `button:has-text("Login")`). You analyze HTML structure, generate multiple locator strategies with fallbacks, score their reliability using confidence metrics, and detect special component patterns (react-select, datepickers, file uploads).
+Map logical test actions to robust web element selectors by analyzing HTML structure, generating multiple locator strategies with fallbacks, scoring reliability using confidence metrics, detecting special component patterns, and verifying locator uniqueness using live browser inspection to ensure selectors are truly unique in the rendered DOM.
 
-Your role in the pipeline: Convert test steps (from Test Case Designer) into concrete element locators (for POM Generator). You bridge the gap between abstract test logic and specific DOM elements.
+Pipeline role: Convert test steps from Test Case Designer into concrete element locators for POM Generator. Bridge the gap between abstract test logic and specific DOM elements.
 
-**Reference:** See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework applied throughout locator analysis.
+Key enhancement: Static HTML analysis can miss duplicate elements rendered client-side in SPAs or dynamic content. Playwright-MCP browser verification ensures locators are unique in the live DOM, significantly reducing test flakiness.
+
+📖 **Reference:** See `critical_thinking_protocol.instructions.md` for mandatory skepticism framework applied throughout locator analysis.
 
 ---
 
 ## Input Contract
 
-**NOTE: This TypeScript interface shows the expected structure - accept input as JSON matching this schema**
-
-**.agent File Location:** `.github/agents/dom_analysis.agent`
+📖 **Reference:** Input structure follows `.agent` file format. See `state_management_guide.instructions.md` for file location patterns.
 
 ```typescript
 // Example input structure (non-executable):
@@ -30,39 +28,24 @@ Your role in the pipeline: Convert test steps (from Test Case Designer) into con
 //   timestamp: "<TIMESTAMP_ISO8601>";
 //   input: {
 //     metadata: {
-//       domain: "<SANITIZED_DOMAIN>";       // e.g., "demoqa_com"
-//       feature: "<SANITIZED_FEATURE>";     // e.g., "student_registration"
+//       domain: "<SANITIZED_DOMAIN>";
+//       feature: "<SANITIZED_FEATURE>";
 //       url: "<ORIGINAL_URL>";
 //     };
 //     testCases: "<PATH_TO_GATE1_OUTPUT>" | Array<{
 //       testId: "<TEST_ID>";
 //       testSteps: Array<{
-//         action: "<ACTION>";               // e.g., "Enter username"
-//         target: "<TARGET>";               // e.g., "username input field"
+//         action: "<ACTION>";
+//         target: "<TARGET>";
 //       }>;
 //     }>;
-//     cachedHTML: "<PATH_TO_HTML>";         // Path to cached HTML file (required)
-//     isSPA?: <BOOLEAN>;                    // Is this a Single Page App?
+//     cachedHTML: "<PATH_TO_HTML>";
+//     isSPA?: <BOOLEAN>;
 //   };
 // }
 ```
 
-**Reading Input:**
-```typescript
-// Example input reading (non-executable):
-// const agentFileContent = await read_file('.github/agents/dom_analysis.agent', 1, 10000)
-// const agentInput = JSON.parse(agentFileContent)
-// const input = agentInput.input
-//
-// // If testCases is a file path, load it
-// let testCasesData
-// if (typeof input.testCases === 'string') {
-//   const gate1Output = JSON.parse(await read_file(input.testCases, 1, 10000))
-//   testCasesData = gate1Output.output.testCases
-// } else {
-//   testCasesData = input.testCases
-// }
-```
+**Input File Location:** `.github/agents/dom_analysis.agent`
 
 ---
 
@@ -77,37 +60,52 @@ Your role in the pipeline: Convert test steps (from Test Case Designer) into con
 //   executionTimeMs: <DURATION_MS>;
 //   
 //   elementMappings: Array<{
-//     testStep: "<ACTION>";                 // Original action from test case
-//     logicalName: "<LOGICAL_NAME>";        // e.g., "usernameInput"
+//     testStep: "<ACTION>";
+//     logicalName: "<LOGICAL_NAME>";
 //     locators: {
 //       primary: {
 //         type: 'id' | 'css' | 'xpath' | 'role' | 'text';
-//         value: "<SELECTOR>";              // e.g., "#username"
-//         confidenceScore: <0_TO_1>;        // 0.0 - 1.0
+//         value: "<SELECTOR>";
+//         confidenceScore: <0_TO_1>;
+//         verifiedInLiveDOM?: <BOOLEAN>;
+//         liveMatchCount?: <NUMBER>;
 //       };
-//       fallback1: { type, value, confidenceScore };
-//       fallback2: { type, value, confidenceScore };
+//       fallback1: { type, value, confidenceScore, verifiedInLiveDOM?, liveMatchCount? };
+//       fallback2: { type, value, confidenceScore, verifiedInLiveDOM?, liveMatchCount? };
 //     };
 //     interactionPattern: 'standard' | 'react-select' | 'datepicker' | 'file-upload';
-//     notes?: "<SPECIAL_INSTRUCTIONS>";     // Special instructions
+//     requiresManualReview?: <BOOLEAN>;
+//     manualReviewReason?: "<REASON>";
+//     notes?: "<SPECIAL_INSTRUCTIONS>";
 //   }>;
 //   
+//   browserVerification: {
+//     executed: <BOOLEAN>;
+//     url: "<TARGET_URL>";
+//     totalElements: <NUMBER>;
+//     uniquePrimaryLocators: <NUMBER>;
+//     duplicateLocators: <NUMBER>;
+//     notFoundLocators: <NUMBER>;
+//     snapshotPath?: "<PATH>";
+//     screenshotPath?: "<PATH>";
+//   };
+//   
 //   specialComponents: Array<{
-//     name: "<COMPONENT_NAME>";             // e.g., "react-select state dropdown"
-//     componentType: "<TYPE>";              // e.g., "react-select"
-//     interactionStrategy: "<STRATEGY>";    // e.g., "Click container → type → Enter"
+//     name: "<COMPONENT_NAME>";
+//     componentType: "<TYPE>";
+//     interactionStrategy: "<STRATEGY>";
 //   }>;
 //   
 //   validationResult: {
 //     passed: <BOOLEAN>;
-//     score: <0_TO_1>;                      // Average confidence across all locators
+//     score: <0_TO_1>;
 //     issues: ["<ISSUE_1>"];
 //   };
 //   
 //   executionTrace: {
 //     startTime: "<TIMESTAMP_ISO8601>";
 //     endTime: "<TIMESTAMP_ISO8601>";
-//     executedSteps: ["<STEP_0A>", "<STEP_1>"];
+//     executedSteps: ["<STEP_0A>", "<STEP_4B>"];
 //     skippedSteps: [];
 //     failedSteps: [];
 //     checkpointCompleted: <BOOLEAN>;
@@ -120,9 +118,9 @@ Your role in the pipeline: Convert test steps (from Test Case Designer) into con
 // }
 ```
 
-**Write Output to:** `.state/{domain}-{feature}-gate2-output.json`
+**Output File Location:** `.state/{domain}-{feature}-gate2-output.json`
 
-**Reference:** See `state_management_guide.instructions.md` for complete state file patterns.
+📖 **Reference:** See `state_management_guide.instructions.md` for complete state file patterns.
 
 ---
 
@@ -141,13 +139,14 @@ flowchart TD
     H --> I
     I --> J[Step 3: Match Test Steps to Elements]
     J --> K[Step 4: Generate Locator Strategies]
-    K --> L[Step 5: Calculate Confidence Scores]
-    L --> M[Step 6: Detect Special Components]
-    M --> N[Step 7: Validate Quality]
-    N --> O[Step 8A: Write State File]
-    O --> P[Step 8B: Store Learnings]
-    P --> Q[Step 9: Output Checkpoint]
-    Q --> R[Complete]
+    K --> L[Step 4B: Live Browser Verification]
+    L --> M[Step 5: Calculate Confidence Scores]
+    M --> N[Step 6: Detect Special Components]
+    N --> O[Step 7: Validate Quality]
+    O --> P[Step 8A: Write State File]
+    P --> Q[Step 8B: Store Learnings]
+    Q --> R[Step 9: Output Checkpoint]
+    R --> S[Complete]
 ```
 
 ### Step 0A: Read Input from .agent File (MANDATORY)
@@ -639,11 +638,262 @@ Sequential thinking MUST include these challenge questions:
 // })
 ```
 
+### Step 4B: Live Browser Verification with Playwright-MCP (MANDATORY for Uniqueness)
+
+**Reference:** See `mcp_integration_guide.instructions.md` Section "Browser Automation Tools" for Playwright-MCP parameters.
+
+**Purpose:** Verify locator uniqueness in live rendered DOM using browser automation to catch duplicates that static HTML analysis misses.
+
+**When:** ALWAYS after Step 4, before confidence calculation.
+
+**Problem:** Static HTML analysis has critical limitations:
+- SPAs render elements client-side (React, Vue, Angular)
+- Dynamic content added via AJAX after page load
+- Shadow DOM elements invisible in static HTML
+- CSS-hidden elements that become visible on interaction
+- Auto-generated IDs that appear unique in HTML but duplicate in DOM
+
+**Solution:** Use Playwright-MCP to navigate to live page, take accessibility snapshot, and verify each locator returns exactly 1 element.
+
+**Critical Thinking Checkpoint:**
+
+**❓ Challenge:** Why could static HTML show 1 occurrence but live DOM show multiple?
+- → **Analysis:** Client-side frameworks clone elements, dynamic lists render after load, modals/dialogs add duplicate buttons, pagination loads more elements
+- → **Mitigation:** Navigate to live page, capture accessibility snapshot, use browser evaluate to count matches for each locator
+
+**Execution:**
+
+```typescript
+// Example browser verification (non-executable):
+// logger.info('Step 4B: Live browser verification with Playwright-MCP')
+//
+// // Step 1: Install browser if needed (first-time setup)
+// try {
+//   logger.info('Ensuring browser is installed...')
+//   await mcp_microsoft_pla_browser_install()
+// } catch (error) {
+//   logger.warn('Browser installation check: ${error.message}')
+// }
+//
+// // Step 2: Navigate to target URL
+// logger.info(`Navigating to ${metadata.url}`)
+// await mcp_microsoft_pla_browser_navigate({
+//   url: metadata.url
+// })
+//
+// // Step 3: Wait for page load (critical for SPAs)
+// await mcp_microsoft_pla_browser_wait_for({
+//   time: 3  // Wait 3 seconds for client-side rendering
+// })
+//
+// logger.info('Page loaded - waiting for dynamic content...')
+//
+// // Step 4: Capture accessibility snapshot for reference
+// const snapshot = await mcp_microsoft_pla_browser_snapshot()
+// logger.info('Accessibility snapshot captured')
+//
+// // Step 5: Verify uniqueness for each locator
+// const verificationResults = []
+//
+// for (const mapping of mappings) {
+//   if (!mapping.locators) continue
+//   
+//   const locatorVerification = {
+//     logicalName: mapping.logicalName,
+//     primary: null,
+//     fallback1: null,
+//     fallback2: null
+//   }
+//   
+//   // Verify primary locator
+//   const primarySelector = mapping.locators.primary.value
+//   const primaryCount = await mcp_microsoft_pla_browser_evaluate({
+//     function: `() => { return document.querySelectorAll('${primarySelector.replace(/'/g, "\\'")}').length; }`
+//   })
+//   
+//   locatorVerification.primary = {
+//     selector: primarySelector,
+//     countInLiveDOM: primaryCount,
+//     isUnique: primaryCount === 1,
+//     staticHTMLCount: mapping.locators.primary.confidenceScore  // Original from static analysis
+//   }
+//   
+//   if (primaryCount === 0) {
+//     logger.error(`❌ CRITICAL: Primary locator "${primarySelector}" for "${mapping.logicalName}" NOT FOUND in live DOM`)
+//     logger.error(`   → This element may be dynamically rendered or in shadow DOM`)
+//     logger.error(`   → MITIGATION: Will attempt to find element using accessibility snapshot`)
+//     
+//     // Attempt to find element in accessibility snapshot by role/name
+//     const snapshotMatch = findInSnapshot(snapshot, mapping.target)
+//     if (snapshotMatch) {
+//       logger.warn(`   → Found alternative in snapshot: ${snapshotMatch.role} "${snapshotMatch.name}" [ref=${snapshotMatch.ref}]`)
+//       // Update locator to use snapshot ref
+//       mapping.locators.primary.value = `[data-ref="${snapshotMatch.ref}"]`
+//       mapping.locators.primary.type = 'css'
+//       locatorVerification.primary.alternativeFound = true
+//     }
+//   } else if (primaryCount > 1) {
+//     logger.warn(`⚠️ WARNING: Primary locator "${primarySelector}" for "${mapping.logicalName}" matches ${primaryCount} elements in live DOM`)
+//     logger.warn(`   → Static HTML analysis showed uniqueness, but live DOM has duplicates`)
+//     logger.warn(`   → MITIGATION: Will reduce confidence score and prioritize fallback locators`)
+//     
+//     // Reduce confidence score for primary
+//     mapping.locators.primary.confidenceScore = mapping.locators.primary.confidenceScore * 0.5
+//   } else {
+//     logger.info(`✅ Primary locator "${primarySelector}" verified unique in live DOM`)
+//   }
+//   
+//   // Verify fallback1 locator
+//   const fallback1Selector = mapping.locators.fallback1.value
+//   const fallback1Count = await mcp_microsoft_pla_browser_evaluate({
+//     function: `() => { return document.querySelectorAll('${fallback1Selector.replace(/'/g, "\\'")}').length; }`
+//   })
+//   
+//   locatorVerification.fallback1 = {
+//     selector: fallback1Selector,
+//     countInLiveDOM: fallback1Count,
+//     isUnique: fallback1Count === 1
+//   }
+//   
+//   if (fallback1Count > 1) {
+//     logger.warn(`⚠️ Fallback1 locator "${fallback1Selector}" matches ${fallback1Count} elements`)
+//     mapping.locators.fallback1.confidenceScore = mapping.locators.fallback1.confidenceScore * 0.6
+//   } else if (fallback1Count === 1) {
+//     logger.info(`✅ Fallback1 locator "${fallback1Selector}" verified unique`)
+//   }
+//   
+//   // Verify fallback2 locator
+//   const fallback2Selector = mapping.locators.fallback2.value
+//   const fallback2Count = await mcp_microsoft_pla_browser_evaluate({
+//     function: `() => { return document.querySelectorAll('${fallback2Selector.replace(/'/g, "\\'")}').length; }`
+//   })
+//   
+//   locatorVerification.fallback2 = {
+//     selector: fallback2Selector,
+//     countInLiveDOM: fallback2Count,
+//     isUnique: fallback2Count === 1
+//   }
+//   
+//   if (fallback2Count > 1) {
+//     logger.warn(`⚠️ Fallback2 locator "${fallback2Selector}" matches ${fallback2Count} elements`)
+//     mapping.locators.fallback2.confidenceScore = mapping.locators.fallback2.confidenceScore * 0.6
+//   } else if (fallback2Count === 1) {
+//     logger.info(`✅ Fallback2 locator "${fallback2Selector}" verified unique`)
+//   }
+//   
+//   verificationResults.push(locatorVerification)
+//   
+//   // Critical validation: At least 1 locator must be unique
+//   const hasUniqueLocator = 
+//     locatorVerification.primary.isUnique || 
+//     locatorVerification.fallback1.isUnique || 
+//     locatorVerification.fallback2.isUnique
+//   
+//   if (!hasUniqueLocator) {
+//     logger.error(`❌ CRITICAL: NO unique locators found for "${mapping.logicalName}"`)
+//     logger.error(`   → Primary: ${locatorVerification.primary.countInLiveDOM} matches`)
+//     logger.error(`   → Fallback1: ${locatorVerification.fallback1.countInLiveDOM} matches`)
+//     logger.error(`   → Fallback2: ${locatorVerification.fallback2.countInLiveDOM} matches`)
+//     logger.error(`   → MITIGATION: Recommend adding data-testid attribute to this element`)
+//     
+//     // Mark this mapping as needing manual review
+//     mapping.requiresManualReview = true
+//     mapping.manualReviewReason = 'No unique locators found in live DOM'
+//   }
+// }
+//
+// // Step 6: Re-sort locators by verified confidence
+// mappings.forEach(mapping => {
+//   if (!mapping.locators) return
+//   
+//   const locators = [
+//     { ...mapping.locators.primary, priority: 'primary' },
+//     { ...mapping.locators.fallback1, priority: 'fallback1' },
+//     { ...mapping.locators.fallback2, priority: 'fallback2' }
+//   ]
+//   
+//   // Sort by verified confidence (after browser verification adjustments)
+//   locators.sort((a, b) => b.confidenceScore - a.confidenceScore)
+//   
+//   mapping.locators = {
+//     primary: locators[0],
+//     fallback1: locators[1],
+//     fallback2: locators[2]
+//   }
+// })
+//
+// // Step 7: Take screenshot for documentation
+// await mcp_microsoft_pla_browser_take_screenshot({
+//   filename: `.state/${metadata.domain}-${metadata.feature}-dom-snapshot.png`,
+//   fullPage: false,
+//   type: 'png'
+// })
+//
+// logger.info('Screenshot captured for documentation')
+//
+// // Step 8: Close browser
+// await mcp_microsoft_pla_browser_close()
+//
+// // Step 9: Summary
+// const totalVerified = verificationResults.length
+// const allUniquePrimary = verificationResults.filter(v => v.primary.isUnique).length
+// const requiresReview = mappings.filter(m => m.requiresManualReview).length
+//
+// logger.info(`Browser verification complete:`)
+// logger.info(`  - Total elements verified: ${totalVerified}`)
+// logger.info(`  - Unique primary locators: ${allUniquePrimary}/${totalVerified} (${Math.round(allUniquePrimary/totalVerified*100)}%)`)
+// logger.info(`  - Requires manual review: ${requiresReview}`)
+//
+// if (requiresReview > 0) {
+//   logger.warn(`⚠️ ${requiresReview} elements require manual review - recommend adding data-testid attributes`)
+// }
+```
+
+**Helper Function - Find in Accessibility Snapshot:**
+
+```typescript
+// Example snapshot parsing (non-executable):
+// function findInSnapshot(snapshot, targetText) {
+//   // Parse accessibility snapshot text to find element by name/role
+//   // Snapshot format: "button 'Submit' [ref=abc123]"
+//   const lines = snapshot.split('\n')
+//   
+//   for (const line of lines) {
+//     const match = line.match(/(\w+)\s+'([^']+)'\s+\[ref=([^\]]+)\]/)
+//     if (match) {
+//       const [, role, name, ref] = match
+//       if (name.toLowerCase().includes(targetText.toLowerCase()) || 
+//           targetText.toLowerCase().includes(name.toLowerCase())) {
+//         return { role, name, ref }
+//       }
+//     }
+//   }
+//   
+//   return null
+// }
+```
+
+**Validation Checkpoint:**
+
+After Step 4B, MUST verify:
+- ✅ Browser navigation succeeded
+- ✅ Accessibility snapshot captured
+- ✅ All locators verified for uniqueness
+- ✅ Confidence scores adjusted based on live DOM
+- ✅ Elements requiring manual review flagged
+- ✅ Screenshot captured for documentation
+- ✅ Browser closed properly
+
+**Output:** Natural language summary like:
+```
+"Browser verification complete: 8/10 primary locators verified unique in live DOM. 2 elements require manual review due to duplicate matches. Adjusted confidence scores based on live verification. Screenshot saved to .state/demoqa_com-student_registration-dom-snapshot.png."
+```
+
 ### Step 5: Calculate Confidence Scores
 
 **Reference:** See `critical_thinking_protocol.instructions.md` for validation levels.
 
-**Purpose:** Score locator reliability using uniqueness, stability, and specificity.
+**Purpose:** Score locator reliability using uniqueness, stability, and specificity (now enhanced with live browser verification data).
 
 **When:** After Step 4.
 
@@ -923,7 +1173,12 @@ Sequential thinking MUST include these challenge questions:
 
 Required MCPs:
 ✅ mcp_memory_search_nodes - Queried locator patterns, component patterns
-✅ mcp_sequential-th_sequentialthinking - Planned DOM analysis strategy (3 thoughts) [if executed]
+✅ mcp_sequential-th_sequentialthinking - Planned DOM analysis strategy (5 thoughts) [if executed]
+✅ mcp_microsoft_pla_browser_navigate - Navigated to live page
+✅ mcp_microsoft_pla_browser_snapshot - Captured accessibility tree
+✅ mcp_microsoft_pla_browser_evaluate - Verified locator uniqueness in live DOM
+✅ mcp_microsoft_pla_browser_take_screenshot - Captured visual documentation
+✅ mcp_microsoft_pla_browser_close - Cleaned up browser session
 ✅ mcp_memory_create_entities - Stored LocatorPattern entity
 ✅ mcp_memory_open_nodes - Verified storage succeeded
 
@@ -933,10 +1188,11 @@ Agent-Specific Steps:
 ✅ Step 0C: Load GATE 1 output
 ✅ Step 0D: Pre-flight validation passed
 ✅ Step 0E: Pipeline state verified
-✅ Step 1: Sequential thinking completed (3 thoughts) [if executed]
+✅ Step 1: Sequential thinking completed (5 thoughts) [if executed]
 ✅ Step 2: Parsed HTML, extracted {count} interactive elements
 ✅ Step 3: Matched {matched}/{total} test steps to elements
 ✅ Step 4: Generated 3 locators per element
+✅ Step 4B: Live browser verification - {uniqueCount}/{totalCount} locators verified unique
 ✅ Step 5: Calculated confidence scores (avg: {score}%)
 ✅ Step 6: Detected {count} special components
 ✅ Step 7: Validation passed (score: {score}%)
@@ -965,6 +1221,8 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 | Average Confidence | Mean confidence across primary locators | ≥ 70% |
 | Low Confidence Count | Elements with confidence < 70% | ≤ 20% |
 | Fallback Coverage | All elements have 3 locator strategies | 100% |
+| Browser Verification | All locators verified in live DOM | 100% |
+| Uniqueness in Live DOM | Primary locator matches exactly 1 element | ≥ 80% |
 | Semantic | Locators make sense for element type | Level 3+ |
 
 ---
@@ -973,6 +1231,7 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 
 **NEVER:**
 - Skip memory query (Step 0B)
+- Skip browser verification (Step 4B) - critical for uniqueness validation
 - Skip confidence scoring (Step 5)
 - Skip storing learnings (Step 8B)
 - Return executable TypeScript code
@@ -981,42 +1240,49 @@ ACTION: GATE 2 complete - ready for GATE 3 (POM Generator)
 - Skip special component detection (Step 6)
 - Assign high confidence without evidence
 - Generate locators without HTML validation
+- Trust static HTML count without live DOM verification
+- Proceed with 0 unique locators for any element
 
 **ALWAYS:**
 - Query memory before main execution (Step 0B)
-- Use sequential thinking if 3+ test steps (Step 1)
+- Use sequential thinking if 3+ test steps (Step 1) - increased to 5 thoughts for browser verification
 - Generate 3 locator strategies per element (primary + 2 fallbacks)
+- Verify locators in live browser (Step 4B) - mandatory for SPAs and dynamic content
+- Navigate to live page and capture accessibility snapshot
+- Count element matches using browser evaluate
+- Adjust confidence scores based on live DOM verification
+- Flag elements requiring manual review if no unique locators
+- Take screenshot for documentation
+- Close browser after verification
 - Calculate confidence scores for all locators (Step 5)
 - Detect special components (react-select, datepickers, file uploads)
 - Validate average confidence ≥ 70%
 - Write state file before memory storage (Step 8A before 8B)
 - Store learnings with verification (Step 8B)
-- Output checkpoint showing all completed steps (Step 9)
+- Output checkpoint showing all completed steps including browser verification (Step 9)
 - Use static placeholders in examples
 
 ---
 
 ## Communication Rules
 
-**Reference:** See `rules.instructions.md` Communication Rules section for complete protocol.
+📖 **Reference:** See `rules.instructions.md` Communication Rules section for complete protocol.
 
-**TypeScript Code in Instructions = DOCUMENTATION ONLY**
+TypeScript code in instructions = documentation only. All examples show structure, not implementation templates.
 
-All TypeScript/JavaScript examples are for **SCHEMA DOCUMENTATION** to show data structure. They are NOT templates for agent responses.
-
-**✅ CORRECT Agent Communication:**
-- Natural language descriptions: "I will map 5 test actions to DOM elements using ID, ARIA, and CSS selectors with confidence scoring"
+**Correct Agent Output:**
+- Natural language progress updates
 - JSON format matching documented schemas
-- Tool invocations with clear explanations
+- Tool invocations with explanations
 
-**❌ INCORRECT Agent Communication:**
-- TypeScript code snippets in responses
+**Incorrect Agent Output:**
+- TypeScript code snippets
 - Pseudocode implementations
-- Function definitions or interfaces
+- Function definitions
 
 **Output Format:**
-- Structured state file: `.state/{domain}-{feature}-gate2-output.json`
-- Console output: Natural language progress updates via logger
+- State file: `.state/{domain}-{feature}-gate2-output.json`
+- Console: Natural language progress updates
 
 ---
 
@@ -1028,29 +1294,9 @@ All TypeScript/JavaScript examples are for **SCHEMA DOCUMENTATION** to show data
 | HTML parsing failure | Attempt JSON fallback | 1 | Orchestration |
 | Element not found | Log warning, continue | 0 | Log for review |
 | Low confidence (< 50%) | Log critical warning | 0 | Recommend manual review |
-| Memory query failure | Continue (create new patterns) | 1 | Log warning |
+| Memory query failure | Continue with new patterns | 1 | Log warning |
 | State file write failure | Retry with error details | 3 | Orchestration |
-
-**Error Classification:**
-
-```typescript
-// Example error handling (non-executable):
-// try {
-//   // Main execution
-// } catch (error) {
-//   if (error.message.includes('Cached HTML missing')) {
-//     return {
-//       status: 'FAILED',
-//       validationResult: { passed: false, issues: [error.message] }
-//     }
-//   } else if (error.message.includes('HTML parsing')) {
-//     logger.warn('HTML parsing failed - attempting JSON fallback...')
-//     // Retry logic
-//   } else {
-//     throw error
-//   }
-// }
-```
+| Browser verification failure | Log warning, use static analysis only | 1 | Continue |
 
 ---
 
@@ -1082,7 +1328,7 @@ All TypeScript/JavaScript examples are for **SCHEMA DOCUMENTATION** to show data
   "agentName": "DOMAgent",
   "timestamp": "2025-11-07T10:10:00Z",
   "status": "SUCCESS",
-  "executionTimeMs": 5000,
+  "executionTimeMs": 8500,
   "elementMappings": [
     {
       "testStep": "Enter first name",
@@ -1091,20 +1337,27 @@ All TypeScript/JavaScript examples are for **SCHEMA DOCUMENTATION** to show data
         "primary": {
           "type": "id",
           "value": "#firstName",
-          "confidenceScore": 0.95
+          "confidenceScore": 0.95,
+          "verifiedInLiveDOM": true,
+          "liveMatchCount": 1
         },
         "fallback1": {
           "type": "css",
           "value": "[placeholder='First Name']",
-          "confidenceScore": 0.85
+          "confidenceScore": 0.85,
+          "verifiedInLiveDOM": true,
+          "liveMatchCount": 1
         },
         "fallback2": {
           "type": "xpath",
           "value": "//input[@id='firstName']",
-          "confidenceScore": 0.60
+          "confidenceScore": 0.60,
+          "verifiedInLiveDOM": true,
+          "liveMatchCount": 1
         }
       },
       "interactionPattern": "standard",
+      "requiresManualReview": false,
       "notes": null
     },
     {
@@ -1114,23 +1367,39 @@ All TypeScript/JavaScript examples are for **SCHEMA DOCUMENTATION** to show data
         "primary": {
           "type": "id",
           "value": "#state",
-          "confidenceScore": 0.92
+          "confidenceScore": 0.92,
+          "verifiedInLiveDOM": true,
+          "liveMatchCount": 1
         },
         "fallback1": {
           "type": "css",
           "value": ".react-select__control",
-          "confidenceScore": 0.70
+          "confidenceScore": 0.35,
+          "verifiedInLiveDOM": false,
+          "liveMatchCount": 3
         },
         "fallback2": {
           "type": "xpath",
           "value": "//div[@id='state']",
-          "confidenceScore": 0.60
+          "confidenceScore": 0.60,
+          "verifiedInLiveDOM": true,
+          "liveMatchCount": 1
         }
       },
       "interactionPattern": "react-select",
-      "notes": "Special component: Use click → type → Enter"
+      "requiresManualReview": false,
+      "notes": "Special component: Use click → type → Enter. Fallback1 matches 3 elements - use primary or fallback2"
     }
   ],
+  "browserVerification": {
+    "executed": true,
+    "url": "https://demoqa.com/automation-practice-form",
+    "totalElements": 2,
+    "uniquePrimaryLocators": 2,
+    "duplicateLocators": 1,
+    "notFoundLocators": 0,
+    "screenshotPath": ".state/demoqa_com-student_registration-dom-snapshot.png"
+  },
   "specialComponents": [
     {
       "name": "stateDropdown",
@@ -1145,8 +1414,8 @@ All TypeScript/JavaScript examples are for **SCHEMA DOCUMENTATION** to show data
   },
   "executionTrace": {
     "startTime": "2025-11-07T10:05:00Z",
-    "endTime": "2025-11-07T10:10:00Z",
-    "executedSteps": ["0A", "0B", "0C", "0D", "0E", "1", "2", "3", "4", "5", "6", "7", "8A", "8B", "9"],
+    "endTime": "2025-11-07T10:13:30Z",
+    "executedSteps": ["0A", "0B", "0C", "0D", "0E", "1", "2", "3", "4", "4B", "5", "6", "7", "8A", "8B", "9"],
     "skippedSteps": [],
     "failedSteps": [],
     "checkpointCompleted": true
