@@ -55,7 +55,9 @@ All TypeScript/JavaScript examples are **structural templates** showing data str
 //       feature: "<SANITIZED_FEATURE>",
 //       url: "<ORIGINAL_URL>",
 //       framework: "playwright",
-//       language: "typescript"
+//       language: "typescript",
+//       isSPA: <BOOLEAN>,  // NEW: SPA detected in PRE-PROCESSING
+//       spaFramework: "react" | "vue" | "angular" | "next" | null  // NEW: Specific framework if detected
 //     },
 //     testCases: [
 //       {
@@ -140,7 +142,20 @@ All TypeScript/JavaScript examples are **structural templates** showing data str
 //     ],
 //     compilationErrors: <COUNT>,  // Should be 0
 //     selfHealingEnabled: <BOOLEAN>,
-//     componentReuse: <COUNT>
+//     componentReuse: <COUNT>,
+//     waitStrategy: {  // NEW: Wait strategy tracking
+//       spaHandling: "standard" | "networkidle" | "networkidle+critical",
+//       tieredTimeouts: <BOOLEAN>,  // true if tiered timeout strategy applied
+//       customWaits: <COUNT>,  // Number of elements with custom wait logic
+//       elementStrategies: [
+//         {
+//           elementName: "<ELEMENT_NAME>",
+//           componentType: "react-select" | "datepicker" | "modal" | etc.,
+//           waitCondition: "visible" | "attached" | "visible+menu" | "visible+backdrop",
+//           timeout: <MILLISECONDS>
+//         }
+//       ]
+//     }
 //   },
 //   validation: {
 //     score: <0_TO_100>,
@@ -267,9 +282,9 @@ Check overall pipeline progress:
 
 ### Step 1: Sequential Thinking (MANDATORY)
 
-**When:** ALWAYS for POM generation (7 thoughts minimum - increased to accommodate critical thinking)
+**When:** ALWAYS for POM generation (8 thoughts minimum - increased to accommodate critical thinking + wait strategy)
 
-**Purpose:** Plan code generation strategy WITH INTEGRATED critical thinking about template reliability and locator validity.
+**Purpose:** Plan code generation strategy WITH INTEGRATED critical thinking about template reliability, locator validity, AND wait strategy.
 
 **CRITICAL: Integrate Critical Thinking INTO Sequential Thinking**
 
@@ -283,11 +298,16 @@ Sequential thinking MUST include these challenge questions:
    - ❓ Why could mapped locators still fail in generated code?
    - ❓ Could templates be outdated or incompatible?
    
-3. **Thoughts 5-6:** Plan self-healing and special components
-   - Self-healing fallback chain strategy
+3. **Thought 4.5:** Plan wait strategy (CRITICAL - NEW)
+   - ❓ Why could tests fail due to timing issues even with correct locators?
+   - Analyze SPA detection, element types, sequential dependencies
+   - Select appropriate wait patterns per element
+   
+4. **Thoughts 5-6:** Plan self-healing and special components
+   - Self-healing fallback chain strategy with tiered timeouts
    - Special component interaction patterns
    
-4. **Thought 7:** Risk mitigation and compilation validation
+5. **Thought 7-8:** Risk mitigation and compilation validation
    - Completeness check
    - Compilation validation plan
 
@@ -324,31 +344,39 @@ Sequential thinking MUST include these challenge questions:
 // mcp_sequential-th_sequentialthinking({
 //   thought: "❓ CHALLENGE: Could templates be outdated? → ANALYSIS: Based on ${totalCases} test cases, selecting ${templatePattern} template. Template version: ${templateVersion}. Playwright version: ${playwrightVersion}. Template may use deprecated APIs (page.$ vs page.locator). → MITIGATION: Use latest Playwright best practices: page.locator(), expect().toBeVisible(), async/await. Avoid deprecated: page.$, waitForSelector. Validate generated code uses current API patterns.",
 //   thoughtNumber: 4,
-//   totalThoughts: 7,
+//   totalThoughts: 8,
+//   nextThoughtNeeded: true
+// })
+//
+// Thought 4.5: Plan wait strategy (CRITICAL - NEW)
+// mcp_sequential-th_sequentialthinking({
+//   thought: "❓ CHALLENGE: Why could tests fail due to timing even with correct locators? → ANALYSIS: Detected isSPA=${metadata.isSPA}. Element types: ${elementTypeCounts}. Sequential dependencies: ${sequentialDeps} (e.g., state selection populates city dropdown). Special components: ${specialComponents.join(', ')}. Without proper waits: SPAs fail (content not hydrated), sequential deps race (city clicked before populated), modals fail (animation incomplete). → MITIGATION: Generate SPA-aware goto() with networkidle + critical element wait. Add tiered timeout strategy (primary 30s, fallback1 10s, fallback2 5s = 52s vs 90s). For react-select: wait for menu render. For modals: wait for backdrop. For sequential deps: explicit coordination waits. Document wait rationale in code comments.",
+//   thoughtNumber: 5,
+//   totalThoughts: 8,
 //   nextThoughtNeeded: true
 // })
 //
 // Thought 5: Plan self-healing fallback chains
 // mcp_sequential-th_sequentialthinking({
-//   thought: "Self-healing strategy: For each element, generate fallback chain: primary locator (${primaryStrategy}) → fallback1 (${fallback1Strategy}) → fallback2 (${fallback2Strategy}). If all fail, throw enriched error with screenshot + DOM snapshot. Average confidence: ${avgConfidence}%. Elements with confidence <70% get 4 fallbacks instead of 3.",
-//   thoughtNumber: 5,
-//   totalThoughts: 7,
+//   thought: "Self-healing strategy: For each element, generate fallback chain: primary locator (${primaryStrategy}) → fallback1 (${fallback1Strategy}) → fallback2 (${fallback2Strategy}). If all fail, throw enriched error with screenshot + DOM snapshot. Average confidence: ${avgConfidence}%. Elements with confidence <70% get 4 fallbacks instead of 3. Integrate tiered timeouts: primary 30s (high confidence worth waiting), fallback1 10s (medium confidence), fallback2 5s (low confidence, fail fast).",
+//   thoughtNumber: 6,
+//   totalThoughts: 8,
 //   nextThoughtNeeded: true
 // })
 //
 // Thought 6: Special components and interaction patterns
 // mcp_sequential-th_sequentialthinking({
 //   thought: "Detected special components: ${specialComponentTypes.join(', ')}. Interaction patterns: ${specialComponentTypes.map(type => `${type} → ${interactionPatterns[type]}`).join('; ')}. Checking for reusable components in tests/test-objects/gui/pageObjects/components/. Found: ${existingComponents.join(', ')}. Will import ${reuseCount} components instead of regenerating.",
-//   thoughtNumber: 6,
-//   totalThoughts: 7,
+//   thoughtNumber: 7,
+//   totalThoughts: 8,
 //   nextThoughtNeeded: true
 // })
 //
 // Thought 7: Completeness and risk mitigation
 // mcp_sequential-th_sequentialthinking({
-//   thought: "❓ CHALLENGE: Why could all steps be mapped but code fail? → ANALYSIS: All ${totalSteps} test steps mapped. Will generate ${fileCount} files: page object, test spec, fixture update. Reusing ${reuseCount} components. Risks: 1) Locator typos in generated code, 2) Missing imports, 3) Type errors. → MITIGATION: Run TypeScript compilation check AFTER generation. If compilation errors, parse errors and fix: missing imports (add imports), type errors (add type annotations), syntax errors (fix quotes/escaping). Target: 0 compilation errors.",
-//   thoughtNumber: 7,
-//   totalThoughts: 7,
+//   thought: "❓ CHALLENGE: Why could all steps be mapped but code fail? → ANALYSIS: All ${totalSteps} test steps mapped. Will generate ${fileCount} files: page object, test spec, fixture update. Reusing ${reuseCount} components. Risks: 1) Locator typos in generated code, 2) Missing imports, 3) Type errors, 4) Wait strategy insufficient for edge cases. → MITIGATION: Run TypeScript compilation check AFTER generation. If compilation errors, parse errors and fix: missing imports (add imports), type errors (add type annotations), syntax errors (fix quotes/escaping). Target: 0 compilation errors.",
+//   thoughtNumber: 8,
+//   totalThoughts: 8,
 //   nextThoughtNeeded: false
 // })
 ```
@@ -768,6 +796,517 @@ Sequential thinking MUST include these challenge questions:
 | `checkbox` | Use check()/uncheck() | `pageActions.check()` / `pageActions.uncheck()` |
 | `radio` | Use check() | `pageActions.check()` |
 | `hover-menu` | Use hover() then click() | `pageActions.hover()` + `pageActions.click()` |
+
+---
+
+### Step 3A: Wait Strategy Taxonomy (CRITICAL)
+
+**Purpose:** Define comprehensive wait strategies per element type and interaction pattern to prevent race conditions and ensure reliable test execution.
+
+**Playwright Auto-Waiting Capabilities:**
+
+Playwright automatically waits for elements before actions:
+- **Attached:** Element is attached to DOM
+- **Visible:** Element has non-empty bounding box and no `visibility:hidden`
+- **Stable:** Element is not animating or completed animation
+- **Receives Events:** Element is not obscured by other elements
+- **Enabled:** Element is not `disabled`
+
+**When Auto-Waiting Is Insufficient:**
+
+| Scenario | Problem | Solution |
+|----------|---------|----------|
+| SPA initial render | Page loaded but content not hydrated | Wait for `networkidle` + critical element |
+| Sequential dependencies | Element B only appears after Element A interaction | Explicit wait between actions |
+| Dynamic lists | List count changes asynchronously | Wait for `locator.count()` to stabilize |
+| Custom states | Element has app-specific loading state | Wait for attribute/class change |
+| Transient elements | Toast/notification appears then disappears | Wait for visible → wait for hidden |
+| Modal dialogs | Dialog animates in with backdrop | Wait for dialog + wait for backdrop |
+
+**Wait Condition Taxonomy:**
+
+```mermaid
+flowchart TD
+    A[Element Mapping] --> B{Component Type}
+    B -->|standard| C[Auto-Wait Sufficient]
+    B -->|react-select| D[Wait for Menu Render]
+    B -->|datepicker| E[Wait for Calendar Widget]
+    B -->|modal| F[Wait for Dialog + Backdrop]
+    B -->|toast| G[Wait Visible → Hidden]
+    B -->|spinner| H[Wait Appear → Disappear]
+    C --> I[Generate Standard Method]
+    D --> J[Generate Custom Wait Logic]
+    E --> J
+    F --> J
+    G --> J
+    H --> J
+```
+
+**Element Type Wait Strategies:**
+
+| Element Type | Wait Conditions | Implementation Pattern | Timeout |
+|--------------|----------------|------------------------|---------|
+| **text-input** | visible + enabled | `pageActions.fill()` auto-waiting | 30s (default) |
+| **button** | visible + enabled + stable | `pageActions.click()` auto-waiting | 30s (default) |
+| **select** | visible + options loaded | `await page.locator(selector).waitFor({ state: 'visible' })`<br>`await expect(page.locator(selector + ' option')).toHaveCount(greaterThan(0))` | 30s + 5s |
+| **react-select** | visible + menu rendered after click | `await pageActions.click(selector)`<br>`await page.locator('.react-select__menu').waitFor()` | 30s + 5s |
+| **datepicker** | visible + calendar widget attached | `await page.locator(selector).waitFor({ state: 'visible' })`<br>`await page.locator('.datepicker-calendar, .react-datepicker').waitFor()` | 30s + 5s |
+| **file-upload** | attached (may be hidden) | `await page.locator(selector).waitFor({ state: 'attached' })` | 10s |
+| **checkbox/radio** | visible + enabled | `pageActions.check()` auto-waiting | 30s (default) |
+| **modal** | visible + backdrop present | `await page.locator(selector).waitFor({ state: 'visible' })`<br>`await page.locator('.modal-backdrop, .overlay').waitFor()` | 30s + 5s |
+| **toast** | visible then auto-hide | `await page.locator(selector).waitFor({ state: 'visible' })`<br>`await page.locator(selector).waitFor({ state: 'hidden', timeout: 5000 })` | 5s + 5s |
+| **spinner** | appear then disappear | `await page.locator(selector).waitFor({ state: 'visible' })`<br>`await page.locator(selector).waitFor({ state: 'hidden', timeout: 30000 })` | 5s + 30s |
+| **hover-menu** | visible on hover + submenu rendered | `await pageActions.hover(selector)`<br>`await page.locator(submenuSelector).waitFor()` | 30s + 5s |
+
+**Decision Logic: Selecting Wait Strategy**
+
+```typescript
+// Example wait strategy selection (non-executable):
+// function selectWaitStrategy(elementMapping) {
+//   const componentType = elementMapping.componentType
+//   const interactionPattern = elementMapping.interactionPattern
+//   const logicalName = elementMapping.logicalName.toLowerCase()
+//   
+//   // Base strategy from component type
+//   let waitStrategy = WAIT_STRATEGIES[componentType] || WAIT_STRATEGIES['standard']
+//   
+//   // Context-based overrides
+//   if (logicalName.includes('modal') || logicalName.includes('dialog')) {
+//     waitStrategy = WAIT_STRATEGIES['modal']
+//   } else if (logicalName.includes('toast') || logicalName.includes('notification')) {
+//     waitStrategy = WAIT_STRATEGIES['toast']
+//   } else if (logicalName.includes('spinner') || logicalName.includes('loading')) {
+//     waitStrategy = WAIT_STRATEGIES['spinner']
+//   }
+//   
+//   return {
+//     preWait: waitStrategy.preWait,        // Wait before interaction
+//     postWait: waitStrategy.postWait,      // Wait after interaction
+//     timeout: waitStrategy.timeout,        // Custom timeout
+//     condition: waitStrategy.condition     // Wait condition (visible, attached, etc.)
+//   }
+// }
+```
+
+---
+
+### Step 3B: SPA-Specific Wait Patterns (CRITICAL for Dynamic Apps)
+
+**SPA Detection Signal:** Orchestration detects SPA during PRE-PROCESSING (checks for `react|vue|angular|__NEXT_DATA__|__NUXT__`). This metadata flows to POM Generator via `metadata.isSPA = true`.
+
+**Problem:** SPAs render initial HTML shell then hydrate content via JavaScript. Standard `domcontentloaded` is insufficient.
+
+**Solution:** Enhanced `goto()` method with multi-stage waiting:
+
+```typescript
+// Example SPA-aware goto() method (non-executable):
+// async goto() {
+//   // Stage 1: Navigate and wait for DOM ready
+//   await pageActions.gotoURL(this.page, '{url}')
+//   logger.info('DOM loaded, waiting for SPA hydration')
+//   
+//   // Stage 2: Wait for network idle (API calls complete)
+//   await this.page.waitForLoadState('networkidle', { timeout: 30000 })
+//   logger.info('Network idle, waiting for critical content')
+//   
+//   // Stage 3: Wait for critical element (proves content rendered)
+//   await this.page.locator(this.locators.{criticalElement}.primary).waitFor({ 
+//     state: 'visible', 
+//     timeout: 10000 
+//   })
+//   logger.info('Critical element visible - page ready for interaction')
+// }
+```
+
+**Critical Element Selection Logic:**
+
+```typescript
+// Example critical element selection (non-executable):
+// function selectCriticalElement(elementMappings, testSteps) {
+//   // Priority 1: Page title or main heading (proves page loaded)
+//   const titleElement = elementMappings.find(em => 
+//     /title|heading|header|h1/i.test(em.logicalName)
+//   )
+//   if (titleElement) return titleElement.logicalName
+//   
+//   // Priority 2: First interactive element in test steps
+//   const firstInteractiveStep = testSteps.find(step => 
+//     step.action === 'fill' || step.action === 'click'
+//   )
+//   if (firstInteractiveStep) {
+//     const element = elementMappings.find(em => 
+//       em.testStep === firstInteractiveStep.description
+//     )
+//     if (element) return element.logicalName
+//   }
+//   
+//   // Priority 3: First visible element in mappings
+//   return elementMappings[0].logicalName
+// }
+```
+
+**Static vs SPA goto() Generation:**
+
+| Page Type | goto() Implementation | Wait Stages |
+|-----------|----------------------|-------------|
+| **Static HTML** | `await pageActions.gotoURL(this.page, url)` | 1 stage (domcontentloaded) |
+| **SPA (React/Vue/Angular)** | `await pageActions.gotoURL(this.page, url)`<br>`await this.page.waitForLoadState('networkidle')`<br>`await this.page.locator(criticalElement).waitFor()` | 3 stages (dom + network + content) |
+
+---
+
+### Step 3C: Wait Integration in Fallback Chains (CRITICAL for Performance)
+
+**Problem:** Current fallback pattern tries each locator with full 30s timeout. If all 3 fail, test waits 90s before failing.
+
+**Solution:** Tiered timeout strategy with page stability check:
+
+```typescript
+// Example tiered fallback with wait optimization (non-executable):
+// private async fillWithFallback(
+//   locatorSet: { primary: string; fallback1: string; fallback2: string },
+//   value: string,
+//   fieldName: string
+// ): Promise<void> {
+//   // PRE-WAIT: Ensure page is stable before attempting any locator
+//   await this.ensurePageStable()
+//   
+//   const attemptedLocators: string[] = []
+//   
+//   // Attempt 1: Primary locator (full timeout - 30s)
+//   try {
+//     await pageActions.fill(this.page, locatorSet.primary, value, { timeout: 30000 })
+//     logger.info(`Primary locator succeeded for ${fieldName}`)
+//     return
+//   } catch (primaryError) {
+//     attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//     logger.warn(`Fallback attempt 1 for ${fieldName}: primary locator failed`)
+//     
+//     // Inter-fallback stabilization (1s)
+//     await this.page.waitForTimeout(1000)
+//   }
+//   
+//   // Attempt 2: Fallback1 locator (reduced timeout - 10s)
+//   try {
+//     await pageActions.fill(this.page, locatorSet.fallback1, value, { timeout: 10000 })
+//     logger.info(`Fallback1 succeeded for ${fieldName}`)
+//     return
+//   } catch (fallback1Error) {
+//     attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//     logger.warn(`Fallback attempt 2 for ${fieldName}: fallback1 locator failed`)
+//     
+//     // Inter-fallback stabilization (1s)
+//     await this.page.waitForTimeout(1000)
+//   }
+//   
+//   // Attempt 3: Fallback2 locator (minimal timeout - 5s)
+//   try {
+//     await pageActions.fill(this.page, locatorSet.fallback2, value, { timeout: 5000 })
+//     logger.info(`Fallback2 succeeded for ${fieldName}`)
+//     return
+//   } catch (fallback2Error) {
+//     attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//     
+//     // All attempts failed - throw enriched error
+//     const errorMessage = `All locators failed for ${fieldName} after tiered attempts (30s + 10s + 5s = 45s total). Attempted:\n${attemptedLocators.join('\n')}\n\nTroubleshooting:\n- Check if element is in iframe/shadow DOM\n- Verify element is not dynamically loaded after page interaction\n- Check browser console for JavaScript errors`
+//     logger.error(errorMessage)
+//     throw new Error(errorMessage)
+//   }
+// }
+//
+// // Page stability helper
+// private async ensurePageStable(): Promise<void> {
+//   try {
+//     // Wait for any ongoing animations or network requests
+//     await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 })
+//   } catch (error) {
+//     // Non-critical - page may already be stable
+//     logger.debug('Page stability check skipped - already stable or timed out')
+//   }
+// }
+```
+
+**Timeout Strategy Summary:**
+
+| Fallback Stage | Timeout | Rationale | Total Elapsed |
+|----------------|---------|-----------|---------------|
+| **Pre-wait** | 5s | Ensure page stable | 5s |
+| **Primary locator** | 30s | High confidence - wait full duration | 5s + 30s = 35s |
+| **Stabilization delay** | 1s | Allow DOM to settle between attempts | 36s |
+| **Fallback1 locator** | 10s | Medium confidence - fail faster | 46s |
+| **Stabilization delay** | 1s | Allow DOM to settle | 47s |
+| **Fallback2 locator** | 5s | Low confidence - fail fast | 52s |
+| **Total worst-case** | ~52s | vs 90s with uniform timeouts | 42% faster |
+
+**Critical Thinking Checkpoint 3B:**
+
+❓ **Challenge:** Why reduce timeout for fallback locators instead of keeping uniform 30s?
+
+→ **Analysis:** If primary locator (95% confidence) fails after 30s, fallback locators (70-85% confidence) are unlikely to succeed with more waiting. Failure is likely due to wrong selector, not timing. Waiting another 60s (2 * 30s) wastes test execution time.
+
+→ **Mitigation:** Tiered timeouts balance reliability and performance. Primary gets full wait (element might be slow), fallbacks get reduced wait (if primary failed, likely selector issue not timing).
+
+❓ **Challenge:** What if element truly needs >30s to appear but primary locator is wrong?
+
+→ **Analysis:** Edge case where slow-loading element has incorrect primary locator. Fallback1 (10s timeout) might fail even though fallback2 (correct selector) would succeed with more time.
+
+→ **Mitigation:** 
+1. Pre-wait `ensurePageStable()` gives extra buffer for slow pages
+2. If this scenario detected in test healing (fallback2 succeeds after multiple attempts), promote fallback2 to primary
+3. Document in output: "Fallback2 succeeded - consider swapping with primary"
+
+---
+
+### Step 3D: Page Load Synchronization Patterns
+
+**Wait for Load State Options:**
+
+| Load State | Meaning | Use Case |
+|------------|---------|----------|
+| `load` | `load` event fired | Static pages with synchronous resources |
+| `domcontentloaded` | DOM tree constructed | Standard page navigation (default in pageActions) |
+| `networkidle` | No network connections for 500ms | SPAs, pages with AJAX calls |
+
+**Pattern 1: Standard Page Navigation**
+
+```typescript
+// Example standard navigation (non-executable):
+// async goto() {
+//   await pageActions.gotoURL(this.page, '{url}')  // Uses 'domcontentloaded'
+// }
+```
+
+**Pattern 2: SPA Navigation**
+
+```typescript
+// Example SPA navigation (non-executable):
+// async goto() {
+//   await pageActions.gotoURL(this.page, '{url}')
+//   await this.page.waitForLoadState('networkidle', { timeout: 30000 })
+//   await this.page.locator(this.locators.{criticalElement}.primary).waitFor({ state: 'visible' })
+// }
+```
+
+**Pattern 3: Multi-Step Form with Sequential Dependencies**
+
+```typescript
+// Example sequential form with wait coordination (non-executable):
+// async fillCompleteForm(formData: {firstName: string, state: string, city: string}) {
+//   // Step 1: Fill independent fields
+//   await this.fillFirstName(formData.firstName)
+//   
+//   // Step 2: Select state (triggers city dropdown population)
+//   await this.selectState(formData.state)
+//   
+//   // Step 3: Wait for city dropdown to populate (sequential dependency)
+//   await this.page.locator(this.locators.cityDropdown.primary + ' option').nth(1).waitFor({ timeout: 5000 })
+//   logger.info('City dropdown populated after state selection')
+//   
+//   // Step 4: Select city (now safe to interact)
+//   await this.selectCity(formData.city)
+// }
+```
+
+**Pattern 4: Modal Dialog Interaction**
+
+```typescript
+// Example modal dialog with coordination waits (non-executable):
+// async openUserSettingsModal() {
+//   // Step 1: Click trigger button
+//   await this.clickSettingsButton()
+//   
+//   // Step 2: Wait for modal to appear
+//   await this.page.locator(this.locators.settingsModal.primary).waitFor({ state: 'visible', timeout: 5000 })
+//   
+//   // Step 3: Wait for modal backdrop (ensures animation complete)
+//   await this.page.locator('.modal-backdrop').waitFor({ state: 'visible', timeout: 2000 })
+//   
+//   // Step 4: Wait for modal content (ensures inner content loaded)
+//   await this.page.locator(this.locators.settingsModal.primary + ' .modal-body').waitFor({ state: 'visible', timeout: 3000 })
+//   
+//   logger.info('Settings modal fully loaded and ready for interaction')
+// }
+```
+
+**Pattern 5: Transient Element (Toast/Notification)**
+
+```typescript
+// Example transient element wait (non-executable):
+// async verifySuccessToast(expectedMessage: string): Promise<boolean> {
+//   try {
+//     // Step 1: Wait for toast to appear
+//     await this.page.locator(this.locators.successToast.primary).waitFor({ state: 'visible', timeout: 5000 })
+//     
+//     // Step 2: Verify message content
+//     const actualMessage = await this.getSuccessToastText()
+//     logger.info(`Toast appeared with message: ${actualMessage}`)
+//     
+//     // Step 3: Wait for toast to disappear (proves transient behavior)
+//     await this.page.locator(this.locators.successToast.primary).waitFor({ state: 'hidden', timeout: 5000 })
+//     logger.info('Toast auto-dismissed as expected')
+//     
+//     return actualMessage.includes(expectedMessage)
+//   } catch (error) {
+//     logger.error(`Toast verification failed: ${error.message}`)
+//     return false
+//   }
+// }
+```
+
+---
+
+### Step 3E: Updated Page Object Template with Comprehensive Wait Strategy
+
+**Complete Template with Wait Integration:**
+
+```typescript
+// Example page object with comprehensive wait strategy (non-executable):
+// import { Page } from '@playwright/test'
+// import { pageActions } from '@utilities/ui/page-actions'
+// import { logger } from '@utilities/reporter/custom-logger'
+//
+// export default class {PageName}Page {
+//   private page: Page
+//   
+//   constructor(page: Page) {
+//     this.page = page
+//   }
+//   
+//   // Locator strings with wait metadata
+//   private locators = {
+//     {elementName}: {
+//       primary: '{primaryLocator}',
+//       fallback1: '{fallback1Locator}',
+//       fallback2: '{fallback2Locator}',
+//       waitCondition: 'visible',  // visible | attached | stable
+//       componentType: 'standard'   // For wait strategy selection
+//     }
+//   }
+//   
+//   // Navigation with SPA-aware waiting
+//   async goto() {
+//     await pageActions.gotoURL(this.page, '{url}')
+//     
+//     // If SPA detected: add network idle + critical element wait
+//     // if ({isSPA}) {
+//     //   await this.page.waitForLoadState('networkidle', { timeout: 30000 })
+//     //   await this.page.locator(this.locators.{criticalElement}.primary).waitFor({ state: 'visible', timeout: 10000 })
+//     //   logger.info('SPA hydration complete - page ready')
+//     // }
+//   }
+//   
+//   // Standard form field with auto-wait
+//   async fill{ElementName}(value: string) {
+//     await this.fillWithFallback(
+//       this.locators.{elementName}, 
+//       value, 
+//       '{elementName}'
+//     )
+//   }
+//   
+//   // Special component with custom wait (react-select example)
+//   // async selectCountry(value: string) {
+//   //   // Step 1: Click to open dropdown
+//   //   await this.clickWithFallback(this.locators.countryDropdown, 'countryDropdown')
+//   //   
+//   //   // Step 2: Wait for menu to render
+//   //   await this.page.locator('.react-select__menu').waitFor({ state: 'visible', timeout: 5000 })
+//   //   
+//   //   // Step 3: Type to search
+//   //   await this.fillWithFallback(this.locators.countryDropdown, value, 'countryDropdown')
+//   //   
+//   //   // Step 4: Press Enter to select
+//   //   await this.page.keyboard.press('Enter')
+//   //   
+//   //   logger.info(`Selected country: ${value}`)
+//   // }
+//   
+//   // Self-healing wrapper with tiered timeout strategy
+//   private async fillWithFallback(
+//     locatorSet: { primary: string; fallback1: string; fallback2: string },
+//     value: string,
+//     fieldName: string
+//   ): Promise<void> {
+//     // Pre-wait: Ensure page stable
+//     await this.ensurePageStable()
+//     
+//     const attemptedLocators: string[] = []
+//     
+//     // Attempt 1: Primary (30s timeout)
+//     try {
+//       await pageActions.fill(this.page, locatorSet.primary, value, { timeout: 30000 })
+//       return
+//     } catch (primaryError) {
+//       attemptedLocators.push(`primary (${locatorSet.primary}): ${primaryError.message}`)
+//       logger.warn(`Fallback attempt 1 for ${fieldName}: primary locator failed`)
+//       await this.page.waitForTimeout(1000)  // Stabilization delay
+//     }
+//     
+//     // Attempt 2: Fallback1 (10s timeout)
+//     try {
+//       await pageActions.fill(this.page, locatorSet.fallback1, value, { timeout: 10000 })
+//       logger.info(`Fallback1 succeeded for ${fieldName}`)
+//       return
+//     } catch (fallback1Error) {
+//       attemptedLocators.push(`fallback1 (${locatorSet.fallback1}): ${fallback1Error.message}`)
+//       logger.warn(`Fallback attempt 2 for ${fieldName}: fallback1 locator failed`)
+//       await this.page.waitForTimeout(1000)
+//     }
+//     
+//     // Attempt 3: Fallback2 (5s timeout)
+//     try {
+//       await pageActions.fill(this.page, locatorSet.fallback2, value, { timeout: 5000 })
+//       logger.info(`Fallback2 succeeded for ${fieldName}`)
+//       return
+//     } catch (fallback2Error) {
+//       attemptedLocators.push(`fallback2 (${locatorSet.fallback2}): ${fallback2Error.message}`)
+//       const errorMessage = `All locators failed for ${fieldName}. Attempted:\n${attemptedLocators.join('\n')}`
+//       logger.error(errorMessage)
+//       throw new Error(errorMessage)
+//     }
+//   }
+//   
+//   // Similar pattern for clickWithFallback and other methods...
+//   
+//   // Page stability helper
+//   private async ensurePageStable(): Promise<void> {
+//     try {
+//       await this.page.waitForLoadState('domcontentloaded', { timeout: 5000 })
+//     } catch (error) {
+//       logger.debug('Page stability check skipped')
+//     }
+//   }
+// }
+```
+
+**Wait Strategy Decision Matrix for Code Generation:**
+
+```typescript
+// Example wait strategy application during code generation (non-executable):
+// function generateMethodWithWaitStrategy(elementMapping) {
+//   const waitStrategy = selectWaitStrategy(elementMapping)
+//   
+//   if (elementMapping.componentType === 'standard') {
+//     // Use standard fillWithFallback (relies on pageActions auto-wait)
+//     return `async fill${capitalize(elementMapping.logicalName)}(value: string) {
+//       await this.fillWithFallback(this.locators.${elementMapping.logicalName}, value, '${elementMapping.logicalName}')
+//     }`
+//   }
+//   
+//   if (elementMapping.componentType === 'react-select') {
+//     // Generate custom method with explicit menu wait
+//     return `async select${capitalize(elementMapping.logicalName)}(value: string) {
+//       await this.clickWithFallback(this.locators.${elementMapping.logicalName}, '${elementMapping.logicalName}')
+//       await this.page.locator('.react-select__menu').waitFor({ state: 'visible', timeout: 5000 })
+//       await this.fillWithFallback(this.locators.${elementMapping.logicalName}, value, '${elementMapping.logicalName}')
+//       await this.page.keyboard.press('Enter')
+//     }`
+//   }
+//   
+//   // Similar logic for other component types...
+// }
+```
+
+---
 
 **Critical Thinking Checkpoint 2:**
 
