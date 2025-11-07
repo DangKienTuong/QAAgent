@@ -729,98 +729,13 @@ flowchart TD
 
 ### GATE 4: Test Execution & Healing
 
-**Execution:**
+**Test Execution Overview:**
 
-```typescript
-// Example execution loop with healing retry (non-executable):
-// const results = []
-// const maxRuns = 3
-// const maxHealingAttempts = 3
-// let healingAttemptCount = 0
-// let testHealed = false
-//
-// for (let i = 1; i <= maxRuns; i++) {
-//   const result = run_in_terminal({
-//     command: `npx playwright test ${generatedCode.testFile}`,
-//     explanation: `Test execution run ${i}/${maxRuns}`,
-//     isBackground: false
-//   })
-//   
-//   const runState = {
-//     runNumber: i,
-//     status: result.exitCode === 0 ? 'PASS' : 'FAIL',
-//     error: result.exitCode !== 0 ? result.stderr : undefined,
-//     failedTests: extractFailedTests(result.stdout),
-//     healingAttempted: false,
-//     healingSucceeded: false
-//   }
-//   
-//   results.push(runState)
-//   
-//   // Healing trigger logic
-//   const shouldHeal = decideShouldHeal(results, healingAttemptCount, maxHealingAttempts)
-//   
-//   if (shouldHeal && healingAttemptCount < maxHealingAttempts) {
-//     healingAttemptCount++
-//     logger.info(`Triggering test healing - Attempt ${healingAttemptCount}/${maxHealingAttempts}`)
-//     
-//     // Write .agent file with healing attempt count
-//     // Write input: { failedTest, executionHistory, generatedCode, dataStrategy, cachedHTML, healingAttemptCount, maxHealingAttempts }
-//     // Activate agent: Read .github/agents/test_healing.agent
-//     // Wait for healing result: Read .state/{domain}-{feature}-healing-{attemptNumber}.json
-//     
-//     const healingResult = readHealingResult(healingAttemptCount)
-//     
-//     runState.healingAttempted = true
-//     runState.healingSucceeded = healingResult.status === 'SUCCESS'
-//     runState.healingAttemptNumber = healingAttemptCount
-//     
-//     if (healingResult.status === 'SUCCESS') {
-//       logger.info(`✅ Healing attempt ${healingAttemptCount} succeeded - continuing with next test run`)
-//       testHealed = true
-//       // Continue to next iteration to verify fix
-//     } else {
-//       logger.warn(`❌ Healing attempt ${healingAttemptCount} failed`)
-//       
-//       if (healingAttemptCount >= maxHealingAttempts) {
-//         logger.error(`Max healing attempts (${maxHealingAttempts}) reached. Stopping healing process.`)
-//         break
-//       } else {
-//         logger.info(`Will retry healing on next test failure (${maxHealingAttempts - healingAttemptCount} attempts remaining)`)
-//       }
-//     }
-//   } else if (runState.status === 'FAIL' && healingAttemptCount >= maxHealingAttempts) {
-//     logger.error(`Test still failing after ${maxHealingAttempts} healing attempts. Manual intervention required.`)
-//     break
-//   }
-//   
-//   // Exit early if test passes
-//   if (runState.status === 'PASS') {
-//     logger.info(`✅ Test execution PASSED on run ${i}`)
-//     if (testHealed) {
-//       logger.info(`Test was healed successfully after ${healingAttemptCount} healing attempt(s)`)
-//     }
-//     break
-//   }
-// }
-//
-// decideShouldHeal(results, currentAttempts, maxAttempts) {
-//   if (results.length < 2) return false
-//   if (currentAttempts >= maxAttempts) {
-//     logger.warn(`Max healing attempts (${maxAttempts}) already reached`)
-//     return false
-//   }
-//   
-//   const lastTwo = results.slice(-2)
-//   const consecutiveFailures = lastTwo.every(r => r.status === 'FAIL')
-//   const sameError = lastTwo[0].error === lastTwo[1].error
-//   const sameTests = JSON.stringify(lastTwo[0].failedTests) === JSON.stringify(lastTwo[1].failedTests)
-//   
-//   return consecutiveFailures && sameError && sameTests
-// }
-```
+Execute generated test specification up to 3 times. Monitor for consecutive failures with identical error patterns. If healing criteria met (2 consecutive failures, same error, same tests, attempts < 3), trigger healing agent using Agent Delegation Protocol below.
 
-**Healing Invocation (CONDITIONAL):**
+**CRITICAL: When healing is triggered, MUST follow "Healing Invocation (Following Agent Delegation Protocol)" section below. Do NOT apply healing fixes directly from orchestration.**
+
+**Healing Invocation (Following Agent Delegation Protocol):**
 
 1. **Prepare Input:** Create `.github/agents/test_healing.agent` with:
    ```json
@@ -880,6 +795,98 @@ flowchart TD
   - Test passes after healing (SUCCESS - log healing success)
 
 **Update todo:** Mark GATE 4 completed, GATE 5 in-progress
+
+**Reference Implementation (TypeScript Example):**
+
+The following TypeScript code shows the LOGICAL FLOW only. This is NON-EXECUTABLE REFERENCE documentation. When healing is triggered in actual execution, you MUST follow the "Healing Invocation (Following Agent Delegation Protocol)" section above, NOT implement healing directly from this example.
+
+```typescript
+// Example execution loop with healing retry (NON-EXECUTABLE REFERENCE):
+// const results = []
+// const maxRuns = 3
+// const maxHealingAttempts = 3
+// let healingAttemptCount = 0
+// let testHealed = false
+//
+// for (let i = 1; i <= maxRuns; i++) {
+//   const result = run_in_terminal({
+//     command: `npx playwright test ${generatedCode.testFile}`,
+//     explanation: `Test execution run ${i}/${maxRuns}`,
+//     isBackground: false
+//   })
+//   
+//   const runState = {
+//     runNumber: i,
+//     status: result.exitCode === 0 ? 'PASS' : 'FAIL',
+//     error: result.exitCode !== 0 ? result.stderr : undefined,
+//     failedTests: extractFailedTests(result.stdout),
+//     healingAttempted: false,
+//     healingSucceeded: false
+//   }
+//   
+//   results.push(runState)
+//   
+//   // Healing trigger logic
+//   const shouldHeal = decideShouldHeal(results, healingAttemptCount, maxHealingAttempts)
+//   
+//   if (shouldHeal && healingAttemptCount < maxHealingAttempts) {
+//     healingAttemptCount++
+//     
+//     // CRITICAL: Follow "Healing Invocation (Following Agent Delegation Protocol)" section above
+//     // DO NOT apply healing fixes directly from orchestration
+//     // MUST: Create .agent file → Load instructions → Execute ALL agent steps → Validate output
+//     
+//     const healingResult = readHealingResult(healingAttemptCount)
+//     
+//     runState.healingAttempted = true
+//     runState.healingSucceeded = healingResult.status === 'SUCCESS'
+//     runState.healingAttemptNumber = healingAttemptCount
+//     
+//     if (healingResult.status === 'SUCCESS') {
+//       logger.info(`✅ Healing attempt ${healingAttemptCount} succeeded - continuing with next test run`)
+//       testHealed = true
+//       // Continue to next iteration to verify fix
+//     } else {
+//       logger.warn(`❌ Healing attempt ${healingAttemptCount} failed`)
+//       
+//       if (healingAttemptCount >= maxHealingAttempts) {
+//         logger.error(`Max healing attempts (${maxHealingAttempts}) reached. Stopping healing process.`)
+//         break
+//       } else {
+//         logger.info(`Will retry healing on next test failure (${maxHealingAttempts - healingAttemptCount} attempts remaining)`)
+//       }
+//     }
+//   } else if (runState.status === 'FAIL' && healingAttemptCount >= maxHealingAttempts) {
+//     logger.error(`Test still failing after ${maxHealingAttempts} healing attempts. Manual intervention required.`)
+//     break
+//   }
+//   
+//   // Exit early if test passes
+//   if (runState.status === 'PASS') {
+//     logger.info(`✅ Test execution PASSED on run ${i}`)
+//     if (testHealed) {
+//       logger.info(`Test was healed successfully after ${healingAttemptCount} healing attempt(s)`)
+//     }
+//     break
+//   }
+// }
+//
+// decideShouldHeal(results, currentAttempts, maxAttempts) {
+//   if (results.length < 2) return false
+//   if (currentAttempts >= maxAttempts) {
+//     logger.warn(`Max healing attempts (${maxAttempts}) already reached`)
+//     return false
+//   }
+//   
+//   const lastTwo = results.slice(-2)
+//   const consecutiveFailures = lastTwo.every(r => r.status === 'FAIL')
+//   const sameError = lastTwo[0].error === lastTwo[1].error
+//   const sameTests = JSON.stringify(lastTwo[0].failedTests) === JSON.stringify(lastTwo[1].failedTests)
+//   
+//   return consecutiveFailures && sameError && sameTests
+// }
+```
+
 
 ### GATE 5: Learning & Knowledge Storage
 
