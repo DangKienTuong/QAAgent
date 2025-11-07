@@ -42,6 +42,25 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 **Solution:** Explicit context switching when delegating to agents.
 
+### Pre-Gate Checkpoint (MANDATORY before EVERY gate)
+
+**Before executing ANY gate, you MUST explicitly verify:**
+
+```
+PRE-GATE CHECKPOINT FOR GATE N:
+□ Have I announced delegation to the specific agent?
+□ Have I confirmed I will re-read ALL 7 instruction files? (rules, critical_thinking, mcp_integration, memory_patterns, state_management, data_driven if applicable, agent-specific)
+□ Have I confirmed this gate requires FULL agent execution regardless of data availability in context?
+□ Am I avoiding the temptation to "shortcut" because I have browser snapshot/cached HTML/previous outputs?
+
+CHECKPOINT PASSED → Proceed with Agent Invocation Pattern
+CHECKPOINT FAILED → STOP: Re-read Agent Delegation Protocol section
+```
+
+**If you skip this checkpoint, you WILL violate the Agent Delegation Protocol.**
+
+---
+
 ### Agent Invocation Pattern (MANDATORY for ALL gates)
 
 ```
@@ -87,6 +106,16 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 
 ### Key Rules for Agent Delegation
 
+**CRITICAL ENFORCEMENT: NO CONTEXT-BASED SHORTCUTS**
+
+🚨 **MANDATORY RE-READ RULE:** Even if instruction files were previously loaded in conversation context, you MUST re-read ALL applicable instruction files for EVERY gate execution. This prevents:
+- Context drift across conversation turns
+- Incomplete instruction loading from previous gates
+- Skipping agent steps based on assumed knowledge
+- Synthesizing output from cached data instead of agent execution
+
+**WHY THIS MATTERS:** GATE 0 succeeded because instructions were freshly loaded. GATE 2+ may fail if you assume context is sufficient. ALWAYS execute read_file for ALL 7 instruction files per gate.
+
 **NEVER:**
 - Create gate output files directly from orchestration
 - Skip loading global instruction files (rules, critical_thinking, mcp_integration, memory_patterns, state_management)
@@ -97,9 +126,13 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 - Skip agent's sequential thinking (Step 1)
 - Skip agent's checkpoint output (Step N+3)
 - Synthesize executionTrace data without actual execution
+- **Assume instructions are in context - MUST re-read for every gate** 🚨
+- **Shortcut agent delegation because data is available in context** 🚨
+- **Skip instruction loading with reasoning "already loaded in previous gate"** 🚨
 
 **ALWAYS:**
 - Output delegation announcement before agent work
+- **Re-read ALL applicable instruction files for EVERY gate (no exceptions)** 🚨
 - Load ALL applicable instruction files (6 global + 1 agent-specific = 7 files for most agents)
 - Load files in dependency order (rules → critical_thinking → mcp_integration → memory_patterns → state_management → data_driven → agent-specific)
 - Verify completeness across ALL loaded files (check cross-references)
@@ -109,6 +142,7 @@ All TypeScript/JavaScript examples are **structural templates** showing pipeline
 - Let agent create its own output file
 - Validate agent output before proceeding
 - Output completion announcement after agent work
+- **Treat each gate as fresh execution requiring full instruction load** 🚨
 
 ### Agent Context Boundary Markers
 
